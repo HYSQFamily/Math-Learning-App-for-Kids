@@ -53,6 +53,7 @@ export function TutorChat({ userId }: { userId: string }) {
       {!isOpen && (
         <button
           onClick={() => setIsOpen(true)}
+          data-tutor-trigger
           className="fixed bottom-8 right-8 p-1.5 rounded-full bg-gradient-to-r from-yellow-400 to-orange-400 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110 z-50 group"
           aria-label="打开智能助教"
         >

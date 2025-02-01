@@ -224,6 +224,22 @@ function App() {
                   <Button variant="outline" onClick={loadNewProblem}>
                     跳过
                   </Button>
+                  <Button 
+                    variant="secondary"
+                    onClick={() => {
+                      if (currentProblem) {
+                        setShowHint(true)
+                        const tutorTrigger = document.querySelector('[data-tutor-trigger]') as HTMLButtonElement
+                        if (tutorTrigger) {
+                          tutorTrigger.click()
+                        }
+                      }
+                    }}
+                    className="bg-yellow-100 hover:bg-yellow-200 text-yellow-700 flex items-center gap-1"
+                  >
+                    <Brain className="w-4 h-4" />
+                    求助
+                  </Button>
                 </div>
               </div>
 
