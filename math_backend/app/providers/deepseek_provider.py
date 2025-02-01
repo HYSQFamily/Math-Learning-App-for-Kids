@@ -10,10 +10,19 @@ logger = logging.getLogger(__name__)
 
 class DeepSeekProvider(BaseProvider):
     def __init__(self):
-        required_vars = ["SF_DEEPSEEK_API_TOKEN", "SF_DEEPSEEK_API_URL", "SF_DEEPSEEK_MODEL"]
+        required_vars = [
+            "SF_DEEPSEEK_API_TOKEN",
+            "SF_DEEPSEEK_API_URL",
+            "SF_DEEPSEEK_MODEL",
+            "SF_MAX_TOKENS",
+            "SF_TEMPERATURE",
+            "SF_TOP_P",
+            "SF_TOP_K",
+            "SF_FREQUENCY_PENALTY"
+        ]
         missing_vars = [var for var in required_vars if not os.getenv(var)]
         if missing_vars:
-            logger.warning("Missing required configuration")
+            logger.warning(f"Missing configuration: {missing_vars}")
             raise ValueError("AI助手服务未配置")
         logger.info("AI service initialized")
 
@@ -22,7 +31,7 @@ class DeepSeekProvider(BaseProvider):
             logger.info("Processing request")
             headers = {
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {os.getenv('SF_DEEPSEEK_API_TOKEN')}"
+                "Authorization": os.getenv("SF_DEEPSEEK_API_TOKEN")
             }
             
             payload = {
@@ -32,12 +41,12 @@ class DeepSeekProvider(BaseProvider):
                     {"role": "user", "content": request.question}
                 ],
                 "stream": False,
-                "max_tokens": 512,
+                "max_tokens": int(os.getenv("SF_MAX_TOKENS")),
                 "stop": ["null"],
-                "temperature": 0.7,
-                "top_p": 0.7,
-                "top_k": 50,
-                "frequency_penalty": 0.5,
+                "temperature": float(os.getenv("SF_TEMPERATURE")),
+                "top_p": float(os.getenv("SF_TOP_P")),
+                "top_k": int(os.getenv("SF_TOP_K")),
+                "frequency_penalty": float(os.getenv("SF_FREQUENCY_PENALTY")),
                 "n": 1,
                 "response_format": {"type": "text"}
             }
@@ -45,7 +54,11 @@ class DeepSeekProvider(BaseProvider):
             timeout = aiohttp.ClientTimeout(total=60)
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 try:
-                    async with session.post(os.getenv("SF_DEEPSEEK_API_URL"), headers=headers, json=payload) as response:
+                    async with session.post(
+                        os.getenv("SF_DEEPSEEK_API_URL"),
+                        headers=headers,
+                        json=payload
+                    ) as response:
                         response_text = await response.text()
                         if response.status != 200:
                             logger.error(f"Service error occurred: {response.status}")
