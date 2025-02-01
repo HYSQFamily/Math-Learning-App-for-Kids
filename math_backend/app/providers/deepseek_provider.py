@@ -10,20 +10,12 @@ logger = logging.getLogger(__name__)
 
 class DeepSeekProvider(BaseProvider):
     def __init__(self):
-        required_vars = [
-            "SF_DEEPSEEK_API_TOKEN",
-            "SF_DEEPSEEK_API_URL",
-            "SF_DEEPSEEK_MODEL",
-            "SF_MAX_TOKENS",
-            "SF_TEMPERATURE",
-            "SF_TOP_P",
-            "SF_TOP_K",
-            "SF_FREQUENCY_PENALTY"
-        ]
-        missing_vars = [var for var in required_vars if not os.getenv(var)]
-        if missing_vars:
-            logger.warning(f"Missing configuration: {missing_vars}")
-            raise ValueError("AI助手服务未配置")
+        self.api_token = os.getenv("SF_DEEPSEEK_API_TOKEN")
+        if not self.api_token:
+            logger.error("Missing API token")
+            raise ValueError("智能助教暂时无法使用，请稍后再试")
+        self.api_url = "https://api.siliconflow.cn/v1/chat/completions"
+        self.model = "deepseek-ai/DeepSeek-V3"
         logger.info("AI service initialized")
 
     async def ask(self, request: TutorRequest) -> str:
@@ -31,63 +23,49 @@ class DeepSeekProvider(BaseProvider):
             logger.info("Processing request")
             headers = {
                 "Content-Type": "application/json",
-                "Authorization": os.getenv("SF_DEEPSEEK_API_TOKEN")
+                "Authorization": f"Bearer {self.api_token}"
             }
             
             payload = {
-                "model": os.getenv("SF_DEEPSEEK_MODEL"),
+                "model": self.model,
                 "messages": [
                     {"role": "system", "content": self.get_system_prompt()},
                     {"role": "user", "content": request.question}
                 ],
                 "stream": False,
-                "max_tokens": int(os.getenv("SF_MAX_TOKENS")),
-                "stop": ["null"],
-                "temperature": float(os.getenv("SF_TEMPERATURE")),
-                "top_p": float(os.getenv("SF_TOP_P")),
-                "top_k": int(os.getenv("SF_TOP_K")),
-                "frequency_penalty": float(os.getenv("SF_FREQUENCY_PENALTY")),
-                "n": 1,
+                "max_tokens": 512,
+                "temperature": 0.7,
+                "top_p": 0.7,
+                "top_k": 50,
+                "frequency_penalty": 0.5,
                 "response_format": {"type": "text"}
             }
             
             timeout = aiohttp.ClientTimeout(total=60)
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 try:
-                    async with session.post(
-                        os.getenv("SF_DEEPSEEK_API_URL"),
-                        headers=headers,
-                        json=payload
-                    ) as response:
-                        response_text = await response.text()
+                    async with session.post(self.api_url, headers=headers, json=payload) as response:
                         if response.status != 200:
-                            logger.error(f"Service error occurred: {response.status}")
-                            if response.status == 401:
-                                raise ValueError("AI助手服务未配置")
-                            elif response.status == 429:
-                                raise ValueError("请稍后再试")
-                            raise ValueError("服务暂时不可用")
+                            logger.error(f"Service error: {response.status}")
+                            raise ValueError("智能助教暂时无法使用，请稍后再试")
                         
-                        try:
-                            data = json.loads(response_text)
-                            if not data.get("choices") or not data["choices"]:
-                                raise ValueError("服务暂时不可用")
+                        data = await response.json()
+                        if not data.get("choices") or not data["choices"]:
+                            logger.error("Invalid response: missing choices")
+                            raise ValueError("智能助教暂时无法使用，请稍后再试")
+                        
+                        content = data["choices"][0].get("message", {}).get("content")
+                        if not content:
+                            logger.error("Invalid response: empty content")
+                            raise ValueError("智能助教暂时无法使用，请稍后再试")
                             
-                            message = data["choices"][0].get("message", {})
-                            content = message.get("content")
-                            if not content or not isinstance(content, str):
-                                raise ValueError("服务暂时不可用")
-                                
-                            logger.info("Request completed successfully")
-                            return content
-                        except json.JSONDecodeError as e:
-                            logger.error(f"Failed to parse response JSON: {e}")
-                            raise ValueError("AI助手返回了无效的JSON格式")
+                        logger.info("Request completed successfully")
+                        return content
                         
-                except aiohttp.ClientError:
-                    logger.error("Connection error occurred")
-                    raise ValueError("网络连接失败")
+                except aiohttp.ClientError as e:
+                    logger.error(f"Connection error: {str(e)}")
+                    raise ValueError("智能助教暂时无法使用，请稍后再试")
                     
         except Exception as e:
             logger.error(f"Service error: {str(e)}")
-            raise ValueError("服务暂时不可用")
+            raise ValueError("智能助教暂时无法使用，请稍后再试")
