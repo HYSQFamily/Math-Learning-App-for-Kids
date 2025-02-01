@@ -1,4 +1,4 @@
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Bot, Send, Star, Sparkles, X } from "lucide-react"
@@ -23,6 +23,15 @@ export function TutorChat({ userId }: { userId: string }) {
   const [isLoading, setIsLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const messagesEndRef = useRef<HTMLDivElement>(null)
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" })
+  }
+
+  useEffect(() => {
+    scrollToBottom()
+  }, [messages])
 
   const handleSend = async () => {
     if (!input.trim() || isLoading) return
@@ -54,10 +63,10 @@ export function TutorChat({ userId }: { userId: string }) {
         <button
           onClick={() => setIsOpen(true)}
           data-tutor-trigger
-          className="fixed bottom-8 right-8 p-1.5 rounded-full bg-gradient-to-r from-yellow-400 to-orange-400 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110 z-50 group"
+          className="fixed bottom-8 right-8 p-2.5 rounded-full bg-gradient-to-r from-yellow-400 to-orange-400 shadow-lg hover:shadow-xl transition-all duration-200 hover:scale-110 z-50 group"
           aria-label="打开智能助教"
         >
-          <Star className="w-4 h-4 text-white group-hover:animate-spin" />
+          <Star className="w-5 h-5 text-white group-hover:animate-spin" />
         </button>
       )}
 
@@ -66,7 +75,7 @@ export function TutorChat({ userId }: { userId: string }) {
         isOpen ? "opacity-100" : "opacity-0 pointer-events-none"
       )}>
         <div className={cn(
-          "fixed bottom-20 right-8 w-full sm:w-[400px] bg-white rounded-xl shadow-xl transition-transform duration-200 max-h-[70vh] overflow-hidden",
+          "fixed bottom-4 right-4 w-full sm:w-[400px] bg-white rounded-xl shadow-xl transition-transform duration-200 max-h-[80vh] flex flex-col",
           isOpen ? "translate-y-0" : "translate-y-full"
         )}>
           <div className="p-4 border-b flex items-center justify-between">
@@ -87,8 +96,8 @@ export function TutorChat({ userId }: { userId: string }) {
             </Button>
           </div>
 
-          <div className="p-4 space-y-4">
-            <div className="h-[400px] overflow-y-auto space-y-3">
+          <div className="flex-1 overflow-hidden flex flex-col p-4">
+            <div className="flex-1 overflow-y-auto space-y-3 mb-4">
               {messages.map((message, index) => (
                 <div
                   key={index}
