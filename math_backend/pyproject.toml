@@ -1,0 +1,22 @@
+[tool.poetry]
+name = "math-backend"
+version = "0.1.0"
+description = "Backend for Math Learning App"
+authors = ["Your Name <you@example.com>"]
+
+[tool.poetry.dependencies]
+python = "^3.12"
+fastapi = "^0.109.0"
+uvicorn = "^0.27.0"
+sqlalchemy = "^2.0.25"
+pydantic = "^2.5.3"
+openai = "^1.10.0"
+
+[tool.poetry.dev-dependencies]
+pytest = "^7.4.4"
+black = "^24.1.1"
+isort = "^5.13.2"
+
+[build-system]
+requires = ["poetry-core>=1.0.0"]
+build-backend = "poetry.core.masonry.api"
