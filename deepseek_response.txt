@@ -1,0 +1,24 @@
+Note: Unnecessary use of -X or --request, POST is already inferred.
+*   Trying 127.0.0.1:8000...
+  % Total    % Received % Xferd  Average Speed   Time    Time     Time  Current
+                                 Dload  Upload   Total   Spent    Left  Speed
+  0     0    0     0    0     0      0      0 --:--:-- --:--:-- --:--:--     0* Connected to localhost (127.0.0.1) port 8000 (#0)
+> POST /tutor/ask?service=deepseek HTTP/1.1
+> Host: localhost:8000
+> User-Agent: curl/7.81.0
+> Accept: */*
+> Content-Type: application/json
+> Content-Length: 74
+> 
+} [74 bytes data]
+100    74    0     0  100    74      0     61  0:00:01  0:00:01 --:--:--    61100    74    0     0  100    74      0     33  0:00:02  0:00:02 --:--:--    33* Mark bundle as not supporting multiuse
+< HTTP/1.1 200 OK
+< date: Sat, 01 Feb 2025 05:36:05 GMT
+< server: uvicorn
+< content-length: 603
+< content-type: application/json
+< 
+{ [603 bytes data]
+100   677  100   603  100    74    205     25  0:00:02  0:00:02 --:--:--   230
+* Connection #0 to host localhost left intact
+{"answer":"当我们看到 5x6，意思是 5 乘以 6。这就是说我们要把 5 加了 6 次。让我们来想象一下，如果你有 5 杯果汁，每杯里有 6 颗葡萄，你一共有多少颗葡萄呢？\n\n让我们一起来算一下。首先，我们可以把 5 杯果汁排成一排，每杯里有 6 颗葡萄。然后你可以开始逐一地数颗葡萄，直到数完所有的葡萄。\n\n提示：你可以用画图或者用物品来表示，这样会更容易理解。另外，也可以尝试用加法来解决这个问题。试着将 5 个 6 相加，看看结果是多少。加油！"}
