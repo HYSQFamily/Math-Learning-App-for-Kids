@@ -49,7 +49,7 @@ export const api = {
 
   askTutor: async (userId: string, question: string) => {
     try {
-      const response = await fetch(`${API_URL}/aitutor/ask`, {
+      const response = await fetch(`${API_URL}/tutor/ask`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
