@@ -1,6 +1,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.aitutor import router as tutor_router
+from app.problems import router as problems_router
 from app.database import Base, engine
 
 app = FastAPI()
@@ -19,6 +20,7 @@ Base.metadata.create_all(bind=engine)
 
 # Include routers
 app.include_router(tutor_router, prefix="/tutor", tags=["tutor"])
+app.include_router(problems_router, tags=["problems"])
 
 @app.get("/")
 async def root():

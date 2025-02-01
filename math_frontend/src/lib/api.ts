@@ -1,89 +1,64 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
-
-export interface User {
-  id: string;
-  username: string;
-  grade_level: number;
-  points: number;
-  streak_days: number;
-  last_practice?: string;
+declare global {
+  interface ImportMeta {
+    env: {
+      VITE_API_URL?: string;
+    };
+  }
 }
+
+const API_URL = import.meta.env.VITE_API_URL || "http://localhost:8000"
 
 export interface Problem {
   id: string;
-  type: string;
   question: string;
-  correct_answer: number;
-  difficulty: number;
+  answer: number;
   hints: string[];
-  explanation: string;
   knowledge_point: string;
-  related_points: string[];
+  related_points?: string[];
 }
 
-export interface Achievement {
-  id: string;
-  name: string;
-  description: string;
-  icon: string;
-  points_reward: number;
+export interface AttemptResult {
+  is_correct: boolean;
+  need_extra_help?: boolean;
+  mastery_level?: number;
 }
 
-export interface Progress {
-  user_id: string;
-  total_solved: number;
-  correct_solved: number;
-  current_streak: number;
-  points: number;
-  last_practice: string;
-  achievements: Achievement[];
+export interface TutorResponse {
+  answer: string;
 }
 
 export const api = {
-  createUser: async (username: string): Promise<User> => {
-    const response = await fetch(`${API_URL}/users/?username=${encodeURIComponent(username)}`, {
-      method: 'POST'
-    });
-    return response.json();
+  getNextProblem: async (): Promise<Problem> => {
+    const response = await fetch(`${API_URL}/problems/next`)
+    if (!response.ok) throw new Error("获取题目失败")
+    return response.json()
   },
 
-  askTutor: async (userId: string, question: string, service: string = 'openai') => {
+  submitAnswer: async (problemId: string, answer: number): Promise<AttemptResult> => {
+    const response = await fetch(`${API_URL}/problems/submit`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ problem_id: problemId, answer })
+    })
+    if (!response.ok) throw new Error("提交答案失败")
+    return response.json()
+  },
+
+  askTutor: async (userId: string, question: string, service: "openai" | "deepseek" = "openai"): Promise<TutorResponse> => {
     try {
       const response = await fetch(`${API_URL}/tutor/ask?service=${service}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ user_id: userId, question }),
-      });
-      
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ user_id: userId, question })
+      })
       if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}));
-        throw new Error(errorData.detail || '系统出现错误，请稍后再试');
+        const error = await response.json().catch(() => ({ detail: "网络错误" }))
+        throw new Error(error.detail || "AI助手暂时无法回答，请稍后再试")
       }
-      
-      return response.json();
+      return response.json()
     } catch (error: any) {
-      console.error('AI Tutor Error:', error);
-      throw error;
+      console.error("AI Tutor Error:", error)
+      throw new Error(error.message || "AI助手暂时无法回答，请稍后再试")
     }
-  },
-
-  getProblems: async (type?: string): Promise<Problem[]> => {
-    const url = type ? `${API_URL}/problems/?problem_type=${type}` : `${API_URL}/problems/`;
-    const response = await fetch(url);
-    return response.json();
-  },
-
-  submitAttempt: async (userId: string, problemId: string, answer: number) => {
-    const response = await fetch(`${API_URL}/attempts/?user_id=${userId}&problem_id=${problemId}&answer=${answer}`, {
-      method: 'POST'
-    });
-    return response.json();
-  },
-
-  getProgress: async (userId: string): Promise<Progress> => {
-    const response = await fetch(`${API_URL}/progress/${userId}`);
-    return response.json();
   }
-};
+}
