@@ -1,7 +1,8 @@
-import { useState, useEffect, useRef } from "react"
+import React, { useState, useEffect, useRef } from "react"
 import { Button } from "../components/ui/button"
 import { Input } from "../components/ui/input"
 import { Bot, Send, Star, Sparkles, X } from "lucide-react"
+import { ServicePicker } from "./ServicePicker"
 import { api } from "../lib/api"
 import { cn } from "../lib/utils"
 
@@ -23,6 +24,7 @@ export function TutorChat({ userId }: { userId: string }) {
   const [isLoading, setIsLoading] = useState(false)
   const [isOpen, setIsOpen] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [service, setService] = useState("openai")
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   const scrollToBottom = () => {
@@ -41,7 +43,7 @@ export function TutorChat({ userId }: { userId: string }) {
       setIsLoading(true)
       setMessages(prev => [...prev, { role: "user", text: input }])
       
-      const response = await api.askTutor(userId, input)
+      const response = await api.askTutor(userId, input, service)
       setMessages(prev => [...prev, { role: "AI", text: response.answer }])
       setInput("")
     } catch (error: any) {
@@ -79,12 +81,15 @@ export function TutorChat({ userId }: { userId: string }) {
           isOpen ? "translate-y-0" : "translate-y-full"
         )}>
           <div className="p-4 border-b flex items-center justify-between">
-            <div className="flex items-center gap-2">
-              <div className="relative">
-                <Bot className="w-6 h-6 text-blue-600" />
-                <Sparkles className="absolute -bottom-1 -right-1 w-3 h-3 text-yellow-400" />
+            <div className="flex items-center gap-4">
+              <div className="flex items-center gap-2">
+                <div className="relative">
+                  <Bot className="w-6 h-6 text-blue-600" />
+                  <Sparkles className="absolute -bottom-1 -right-1 w-3 h-3 text-yellow-400" />
+                </div>
+                <span className="font-medium">智能数学助教</span>
               </div>
-              <span className="font-medium">智能数学助教</span>
+              <ServicePicker service={service} setService={setService} />
             </div>
             <Button
               variant="ghost"
