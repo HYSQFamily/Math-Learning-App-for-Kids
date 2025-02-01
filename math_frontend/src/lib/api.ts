@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL;
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8000';
 
 export interface User {
   id: string;
@@ -47,9 +47,9 @@ export const api = {
     return response.json();
   },
 
-  askTutor: async (userId: string, question: string) => {
+  askTutor: async (userId: string, question: string, service: string = 'openai') => {
     try {
-      const response = await fetch(`${API_URL}/aitutor/ask`, {
+      const response = await fetch(`${API_URL}/tutor/ask?service=${service}`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
