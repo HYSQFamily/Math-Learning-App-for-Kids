@@ -21,9 +21,12 @@ const API_URL = import.meta.env.VITE_API_URL || "https://math-learning-app-backe
 
 export const api = {
   getNextProblem: async (): Promise<Problem> => {
+    console.log("Fetching next problem...")
     const response = await fetch(`${API_URL}/problems/next`)
     if (!response.ok) throw new Error("获取题目失败")
-    return response.json()
+    const problem = await response.json()
+    console.log("Received new problem:", problem)
+    return problem
   },
 
   submitAnswer: async (problemId: string, answer: number): Promise<AttemptResult> => {
