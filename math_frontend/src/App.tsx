@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react"
 import type { Problem } from "./types"
 import { TutorChat } from "./components/TutorChat"
-import { ServicePicker } from "./components/ServicePicker"
 import { Button } from "./components/ui/button"
 import { api } from "./lib/api"
 import { isValidNumber } from "./lib/utils"
@@ -9,9 +8,8 @@ import { isValidNumber } from "./lib/utils"
 export default function App() {
   const [problem, setProblem] = useState<Problem | null>(null)
   const [answer, setAnswer] = useState("")
-  const [service, setService] = useState<"openai" | "deepseek">("deepseek")
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
-  const [isTutorVisible, setIsTutorVisible] = useState(false)
+  // Tutor is always visible now
 
   useEffect(() => {
     fetchNextProblem()
@@ -20,10 +18,14 @@ export default function App() {
   const fetchNextProblem = async () => {
     try {
       const nextProblem = await api.getNextProblem()
+      // Batch state updates together
       setProblem(nextProblem)
       setAnswer("")
       setIsCorrect(null)
-      focusAnswerInput()
+      // Focus input after a brief delay to ensure DOM is ready
+      setTimeout(() => {
+        focusAnswerInput()
+      }, 100)
     } catch (error) {
       console.error("获取题目失败:", error)
     }
@@ -33,10 +35,17 @@ export default function App() {
     if (!problem || !isValidNumber(answer)) return
 
     try {
+      console.log("Submitting answer:", answer)
       const result = await api.submitAnswer(problem.id, parseFloat(answer))
       setIsCorrect(result.is_correct)
+      
       if (result.is_correct) {
-        setTimeout(fetchNextProblem, 1000)
+        console.log("Answer correct, fetching next problem...")
+        setAnswer("")
+        setIsCorrect(true)
+        // Immediately fetch next problem and reset state
+        await fetchNextProblem()
+        setIsCorrect(false)
       }
     } catch (error) {
       console.error("提交答案失败:", error)
@@ -45,15 +54,17 @@ export default function App() {
 
   const focusAnswerInput = () => {
     const input = document.querySelector("input[type=text]") as HTMLInputElement
-    if (input) input.focus()
+    if (input) {
+      input.focus()
+      input.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
   }
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-4xl mx-auto">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">数学学习助手</h1>
-          <ServicePicker service={service} setService={setService} />
         </div>
 
         <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -62,9 +73,16 @@ export default function App() {
               <div className="mb-4">
                 <h2 className="text-lg font-medium text-gray-900 mb-2">题目</h2>
                 <p className="text-gray-700">{problem.question}</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  知识点：{problem.knowledge_point}
-                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    知识点：{problem.knowledge_point}
+                  </span>
+                  {problem.related_points?.map((point, i) => (
+                    <span key={i} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      {point}
+                    </span>
+                  ))}
+                </div>
               </div>
 
               <div className="mb-4">
@@ -85,23 +103,7 @@ export default function App() {
                 <Button onClick={handleSubmit} className="px-6">
                   提交答案
                 </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => setIsTutorVisible(!isTutorVisible)}
-                  className="flex items-center gap-2"
-                >
-                  {isTutorVisible ? (
-                    <>
-                      <span>隐藏助手</span>
-                      <span>👋</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>需要帮助</span>
-                      <span>🤖</span>
-                    </>
-                  )}
-                </Button>
+
               </div>
 
               {isCorrect !== null && (
@@ -121,24 +123,13 @@ export default function App() {
           )}
         </div>
 
-        {isTutorVisible && problem && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={(e) => {
-            if (e.target === e.currentTarget) setIsTutorVisible(false);
-          }}>
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-              <div className="p-4 border-b flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                    🤖
-                  </div>
-                  <span className="font-medium">智能数学助教</span>
-                </div>
-                <Button variant="ghost" size="icon" onClick={() => setIsTutorVisible(false)} className="h-8 w-8">
-                  ❌
-                </Button>
-              </div>
-              <TutorChat problem={problem} service={service} />
+        {problem && (
+          <div className="mt-6 bg-white border-2 border-blue-100 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xl">🐱</span>
+              <span className="text-gray-800">黄小星</span>
             </div>
+            <TutorChat problem={problem} />
           </div>
         )}
       </div>

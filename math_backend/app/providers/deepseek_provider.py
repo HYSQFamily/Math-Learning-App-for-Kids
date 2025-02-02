@@ -16,6 +16,20 @@ class DeepSeekProvider(BaseProvider):
             raise ValueError("智能助教暂时无法使用，请稍后再试")
         self.api_url = "https://api.siliconflow.cn/v1/chat/completions"
         self.model = "deepseek-ai/DeepSeek-V3"
+        self.model_configs = {
+            "quick_hint": {
+                "model": "deepseek-ai/DeepSeek-V3",
+                "max_tokens": 256,
+                "temperature": 0.7,
+                "timeout": 30
+            },
+            "deep_analysis": {
+                "model": "deepseek-ai/DeepSeek-R1",
+                "max_tokens": 512,
+                "temperature": 0.5,
+                "timeout": 60
+            }
+        }
         logger.info("AI service initialized")
 
     async def ask(self, request: TutorRequest) -> str:
@@ -26,6 +40,9 @@ class DeepSeekProvider(BaseProvider):
                 "Authorization": f"Bearer {self.api_token}"
             }
             
+            config = self.model_configs[request.hint_type]
+            self.model = config["model"]
+            
             payload = {
                 "model": self.model,
                 "messages": [
@@ -33,15 +50,15 @@ class DeepSeekProvider(BaseProvider):
                     {"role": "user", "content": request.question}
                 ],
                 "stream": False,
-                "max_tokens": 512,
-                "temperature": 0.7,
+                "max_tokens": config["max_tokens"],
+                "temperature": config["temperature"],
                 "top_p": 0.7,
                 "top_k": 50,
                 "frequency_penalty": 0.5,
                 "response_format": {"type": "text"}
             }
             
-            timeout = aiohttp.ClientTimeout(total=60)
+            timeout = aiohttp.ClientTimeout(total=config["timeout"])
             async with aiohttp.ClientSession(timeout=timeout) as session:
                 try:
                     async with session.post(self.api_url, headers=headers, json=payload) as response:

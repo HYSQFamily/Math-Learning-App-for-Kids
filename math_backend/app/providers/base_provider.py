@@ -1,9 +1,12 @@
 from abc import ABC, abstractmethod
 from pydantic import BaseModel
 
+from typing import Literal
+
 class TutorRequest(BaseModel):
     user_id: str
     question: str
+    hint_type: Literal["quick_hint", "deep_analysis"] = "quick_hint"
 
 class BaseProvider(ABC):
     @abstractmethod
