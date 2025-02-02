@@ -36,7 +36,7 @@ export default function App() {
       const result = await api.submitAnswer(problem.id, parseFloat(answer))
       setIsCorrect(result.is_correct)
       if (result.is_correct) {
-        setTimeout(fetchNextProblem, 1000)
+        fetchNextProblem()
       }
     } catch (error) {
       console.error("提交答案失败:", error)
@@ -44,8 +44,13 @@ export default function App() {
   }
 
   const focusAnswerInput = () => {
-    const input = document.querySelector("input[type=text]") as HTMLInputElement
-    if (input) input.focus()
+    setTimeout(() => {
+      const input = document.querySelector("input[type=text]") as HTMLInputElement
+      if (input) {
+        input.focus()
+        input.scrollIntoView({ behavior: "smooth", block: "center" })
+      }
+    }, 100)
   }
 
   return (
@@ -62,9 +67,16 @@ export default function App() {
               <div className="mb-4">
                 <h2 className="text-lg font-medium text-gray-900 mb-2">题目</h2>
                 <p className="text-gray-700">{problem.question}</p>
-                <p className="text-sm text-gray-500 mt-1">
-                  知识点：{problem.knowledge_point}
-                </p>
+                <div className="flex items-center gap-2 mt-2">
+                  <span className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-blue-100 text-blue-800">
+                    知识点：{problem.knowledge_point}
+                  </span>
+                  {problem.related_points?.map((point, i) => (
+                    <span key={i} className="inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-purple-100 text-purple-800">
+                      {point}
+                    </span>
+                  ))}
+                </div>
               </div>
 
               <div className="mb-4">
@@ -85,23 +97,30 @@ export default function App() {
                 <Button onClick={handleSubmit} className="px-6">
                   提交答案
                 </Button>
-                <Button
-                  variant="secondary"
-                  onClick={() => setIsTutorVisible(!isTutorVisible)}
-                  className="flex items-center gap-2"
-                >
-                  {isTutorVisible ? (
-                    <>
-                      <span>隐藏助手</span>
-                      <span>👋</span>
-                    </>
-                  ) : (
-                    <>
-                      <span>需要帮助</span>
-                      <span>🤖</span>
-                    </>
+                <div className="relative">
+                  <Button
+                    variant="secondary"
+                    onClick={() => setIsTutorVisible(!isTutorVisible)}
+                    className={`flex items-center gap-2 transition-all ${
+                      !isTutorVisible && "animate-bounce"
+                    }`}
+                  >
+                    {isTutorVisible ? (
+                      <>
+                        <span>隐藏助手</span>
+                        <span>👋</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>小猫助手</span>
+                        <span className="text-xl">🐱</span>
+                      </>
+                    )}
+                  </Button>
+                  {!isTutorVisible && (
+                    <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full animate-ping" />
                   )}
-                </Button>
+                </div>
               </div>
 
               {isCorrect !== null && (
@@ -122,7 +141,7 @@ export default function App() {
         </div>
 
         {isTutorVisible && problem && (
-          <div className="fixed inset-0 bg-black/50 flex items-center justify-center p-4 z-50" onClick={(e) => {
+          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={(e) => {
             if (e.target === e.currentTarget) setIsTutorVisible(false);
           }}>
             <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
@@ -133,7 +152,7 @@ export default function App() {
                   </div>
                   <span className="font-medium">智能数学助教</span>
                 </div>
-                <Button variant="ghost" size="icon" onClick={() => setIsTutorVisible(false)} className="h-8 w-8">
+                <Button variant="ghost" onClick={() => setIsTutorVisible(false)} className="h-8 w-8 flex items-center justify-center">
                   ❌
                 </Button>
               </div>
