@@ -9,6 +9,7 @@ export default function App() {
   const [problem, setProblem] = useState<Problem | null>(null)
   const [answer, setAnswer] = useState("")
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
+  const [currentModel, setCurrentModel] = useState("DeepSeek-V3")
   // Tutor is always visible now
 
   useEffect(() => {
@@ -22,10 +23,10 @@ export default function App() {
       setProblem(nextProblem)
       setAnswer("")
       setIsCorrect(null)
-      // Focus input after a brief delay to ensure DOM is ready
-      setTimeout(() => {
+      // Focus input immediately using requestAnimationFrame
+      requestAnimationFrame(() => {
         focusAnswerInput()
-      }, 100)
+      })
     } catch (error) {
       console.error("获取题目失败:", error)
     }
@@ -37,14 +38,33 @@ export default function App() {
     try {
       console.log("Submitting answer:", answer)
       const result = await api.submitAnswer(problem.id, parseFloat(answer))
-      setIsCorrect(result.is_correct)
       
       if (result.is_correct) {
-        console.log("Answer correct, fetching next problem...")
-        setAnswer("")
+        // First, show correct answer feedback
         setIsCorrect(true)
-        // Immediately fetch next problem and reset state
-        await fetchNextProblem()
+        
+        // Clear the answer immediately
+        setAnswer("")
+        
+        // Use setTimeout to ensure the correct feedback is visible briefly
+        setTimeout(async () => {
+          try {
+            const nextProblem = await api.getNextProblem()
+            setProblem(nextProblem)
+            setIsCorrect(null)
+            // Focus input after state updates using requestAnimationFrame
+            requestAnimationFrame(() => {
+              const input = document.querySelector("input[type=text]") as HTMLInputElement
+              if (input) {
+                input.focus()
+                input.scrollIntoView({ behavior: "smooth", block: "center" })
+              }
+            })
+          } catch (error) {
+            console.error("获取下一题失败:", error)
+          }
+        }, 500) // Show correct answer feedback for 500ms
+      } else {
         setIsCorrect(false)
       }
     } catch (error) {
@@ -62,6 +82,9 @@ export default function App() {
 
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
+      <div className="absolute top-2 right-2 bg-indigo-100 text-indigo-700 px-3 py-1 rounded text-sm">
+        当前模型: {currentModel}
+      </div>
       <div className="max-w-4xl mx-auto">
         <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">数学学习助手</h1>
@@ -129,7 +152,7 @@ export default function App() {
               <span className="text-xl">🐱</span>
               <span className="text-gray-800">黄小星</span>
             </div>
-            <TutorChat problem={problem} />
+            <TutorChat problem={problem} onModelChange={setCurrentModel} />
           </div>
         )}
       </div>
