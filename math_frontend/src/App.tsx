@@ -35,13 +35,8 @@ export default function App() {
     try {
       const result = await api.submitAnswer(problem.id, parseFloat(answer))
       if (result.is_correct) {
-        // First fetch and set up the next problem
-        const nextProblem = await api.getNextProblem()
-        setProblem(nextProblem)
-        setAnswer("")
-        // Then show the success message and focus the input
         setIsCorrect(true)
-        focusAnswerInput()
+        await fetchNextProblem()
       } else {
         setIsCorrect(false)
       }
