@@ -9,7 +9,7 @@ export default function App() {
   const [problem, setProblem] = useState<Problem | null>(null)
   const [answer, setAnswer] = useState("")
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
-  const [isTutorVisible, setIsTutorVisible] = useState(false)
+  // Tutor is always visible now
 
   useEffect(() => {
     fetchNextProblem()
@@ -32,13 +32,13 @@ export default function App() {
 
     try {
       const result = await api.submitAnswer(problem.id, parseFloat(answer))
+      setIsCorrect(result.is_correct)
+      
       if (result.is_correct) {
-        // First fetch the next problem
-        await fetchNextProblem()
-        // Then set isCorrect to true (it will be cleared when the new problem loads)
-        setIsCorrect(true)
-      } else {
-        setIsCorrect(false)
+        // Show success message briefly before loading next problem
+        setTimeout(async () => {
+          await fetchNextProblem()
+        }, 800)
       }
     } catch (error) {
       console.error("提交答案失败:", error)
@@ -96,30 +96,7 @@ export default function App() {
                 <Button onClick={handleSubmit} className="px-6">
                   提交答案
                 </Button>
-                <div className="relative">
-                  <Button
-                    variant="secondary"
-                    onClick={() => setIsTutorVisible(!isTutorVisible)}
-                    className={`flex items-center gap-2 transition-all ${
-                      !isTutorVisible && "animate-bounce"
-                    }`}
-                  >
-                    {isTutorVisible ? (
-                      <>
-                        <span>隐藏助手</span>
-                        <span>👋</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>黄小星</span>
-                        <span className="text-xl">🐱</span>
-                      </>
-                    )}
-                  </Button>
-                  {!isTutorVisible && (
-                    <div className="absolute -top-2 -right-2 w-4 h-4 bg-red-500 rounded-full animate-ping" />
-                  )}
-                </div>
+
               </div>
 
               {isCorrect !== null && (
@@ -139,24 +116,13 @@ export default function App() {
           )}
         </div>
 
-        {isTutorVisible && problem && (
-          <div className="fixed inset-0 bg-black/30 backdrop-blur-sm flex items-center justify-center p-4 z-50" onClick={(e) => {
-            if (e.target === e.currentTarget) setIsTutorVisible(false);
-          }}>
-            <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl max-h-[80vh] overflow-hidden" onClick={e => e.stopPropagation()}>
-              <div className="p-4 border-b flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  <div className="w-8 h-8 rounded-full bg-blue-100 flex items-center justify-center">
-                    🤖
-                  </div>
-                  <span className="font-medium">智能数学助教</span>
-                </div>
-                <Button variant="ghost" onClick={() => setIsTutorVisible(false)} className="h-8 w-8 flex items-center justify-center">
-                  ❌
-                </Button>
-              </div>
-              <TutorChat problem={problem} />
+        {problem && (
+          <div className="mt-6 bg-white border-2 border-blue-100 rounded-lg p-4">
+            <div className="flex items-center gap-2 mb-3">
+              <span className="text-xl">🐱</span>
+              <span className="text-gray-800">黄小星</span>
             </div>
+            <TutorChat problem={problem} />
           </div>
         )}
       </div>
