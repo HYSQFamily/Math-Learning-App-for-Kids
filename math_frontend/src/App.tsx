@@ -114,7 +114,7 @@ export default function App() {
                       </>
                     ) : (
                       <>
-                        <span>小猫助手</span>
+                        <span>黄小星</span>
                         <span className="text-xl">🐱</span>
                       </>
                     )}

@@ -38,12 +38,16 @@ export function TutorChat({ problem, service }: TutorChatProps) {
   return (
     <div className="bg-white p-6 overflow-hidden flex flex-col h-[calc(100vh-12rem)]">
       <div className="flex items-center gap-3 mb-6 shrink-0">
-        <div className="w-10 h-10 rounded-full bg-blue-100 flex items-center justify-center text-xl">
-          {service === "openai" ? "🤖" : "🌟"}
+        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-2xl shadow-lg transform hover:scale-110 transition-transform cursor-pointer">
+          {service === "openai" ? "🤖" : "⭐️"}
         </div>
         <div>
-          <h3 className="text-lg font-semibold text-blue-700">智能助教</h3>
-          <p className="text-sm text-gray-500">我会用简单易懂的方式帮你解答问题</p>
+          <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
+            黄小星
+          </h3>
+          <p className="text-sm text-gray-500">
+            让我们一起探索数学的奥秘吧！{service === "openai" ? "🚀" : "✨"}
+          </p>
         </div>
       </div>
 
@@ -65,8 +69,8 @@ export function TutorChat({ problem, service }: TutorChatProps) {
             <div
               className={`p-4 rounded-lg flex-1 ${
                 msg.role === "user" 
-                  ? "bg-blue-50 rounded-tr-none" 
-                  : "bg-gray-50 rounded-tl-none"
+                  ? "bg-blue-50 rounded-tr-none shadow-sm" 
+                  : "bg-gradient-to-br from-purple-50 to-blue-50 rounded-tl-none shadow-sm"
               }`}
             >
               <div className="whitespace-pre-wrap text-gray-800">{msg.content}</div>
@@ -74,25 +78,30 @@ export function TutorChat({ problem, service }: TutorChatProps) {
           </div>
         ))}
         {isLoading && (
-          <div className="flex items-center justify-center gap-2 p-4">
-            <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "0ms" }} />
-            <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "150ms" }} />
-            <div className="w-2 h-2 rounded-full bg-blue-400 animate-bounce" style={{ animationDelay: "300ms" }} />
+          <div className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-lg border border-blue-100">
+            <div className="relative">
+              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
+                {service === "openai" ? "🤖" : "⭐️"}
+              </div>
+              <div className="absolute inset-0 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
+            </div>
+            <p className="text-blue-600">小星正在思考中...</p>
           </div>
         )}
         {error && (
-          <div className="p-4 bg-red-50 text-red-600 rounded-lg border border-red-200">
-            {error}
+          <div className="p-4 bg-red-50 text-red-600 rounded-lg border border-red-100 flex items-center gap-3">
+            <span className="text-xl">⚠️</span>
+            <p>{error}</p>
           </div>
         )}
       </div>
 
       <div className="space-y-4 shrink-0">
-        <div className="grid grid-cols-2 gap-3">
+        <div className="grid grid-cols-3 gap-3">
           <Button
             onClick={() => askQuestion("这道题我不太明白，能给我一些提示吗？")}
             variant="secondary"
-            className="text-sm"
+            className="text-sm hover:bg-blue-200 transition-colors"
             disabled={isLoading}
           >
             请求提示 💡
@@ -100,10 +109,36 @@ export function TutorChat({ problem, service }: TutorChatProps) {
           <Button
             onClick={() => askQuestion("能帮我分析一下这道题的解题思路吗？")}
             variant="secondary"
-            className="text-sm"
+            className="text-sm hover:bg-blue-200 transition-colors"
             disabled={isLoading}
           >
             分析思路 🤔
+          </Button>
+          <Button
+            onClick={() => askQuestion("这道题用什么方法解比较好呢？")}
+            variant="secondary"
+            className="text-sm hover:bg-blue-200 transition-colors"
+            disabled={isLoading}
+          >
+            解题方法 📝
+          </Button>
+        </div>
+        <div className="grid grid-cols-2 gap-3">
+          <Button
+            onClick={() => askQuestion("能给我一个类似的例题吗？")}
+            variant="secondary"
+            className="text-sm hover:bg-blue-200 transition-colors"
+            disabled={isLoading}
+          >
+            看例题 📚
+          </Button>
+          <Button
+            onClick={() => askQuestion("这道题的知识点是什么？能详细解释一下吗？")}
+            variant="secondary"
+            className="text-sm hover:bg-blue-200 transition-colors"
+            disabled={isLoading}
+          >
+            知识点 ⭐️
           </Button>
         </div>
         
@@ -111,7 +146,7 @@ export function TutorChat({ problem, service }: TutorChatProps) {
           <input
             type="text"
             placeholder="输入你的问题..."
-            className="flex-1 px-3 py-2 border rounded-md focus:outline-none focus:ring-1 focus:ring-blue-400"
+            className="flex-1 px-4 py-2.5 border border-blue-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all bg-white/80 backdrop-blur-sm"
             value={inputValue}
             onChange={(e) => setInputValue(e.target.value)}
             onKeyDown={(e) => {
