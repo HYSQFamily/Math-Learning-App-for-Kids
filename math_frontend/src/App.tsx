@@ -18,10 +18,14 @@ export default function App() {
   const fetchNextProblem = async () => {
     try {
       const nextProblem = await api.getNextProblem()
+      // Batch state updates together
       setProblem(nextProblem)
       setAnswer("")
       setIsCorrect(null)
-      focusAnswerInput()
+      // Focus input after a brief delay to ensure DOM is ready
+      setTimeout(() => {
+        focusAnswerInput()
+      }, 100)
     } catch (error) {
       console.error("获取题目失败:", error)
     }
@@ -31,14 +35,17 @@ export default function App() {
     if (!problem || !isValidNumber(answer)) return
 
     try {
+      console.log("Submitting answer:", answer)
       const result = await api.submitAnswer(problem.id, parseFloat(answer))
       setIsCorrect(result.is_correct)
       
       if (result.is_correct) {
-        // Show success message briefly before loading next problem
-        setTimeout(async () => {
-          await fetchNextProblem()
-        }, 800)
+        console.log("Answer correct, fetching next problem...")
+        setAnswer("")
+        setIsCorrect(true)
+        // Immediately fetch next problem and reset state
+        await fetchNextProblem()
+        setIsCorrect(false)
       }
     } catch (error) {
       console.error("提交答案失败:", error)

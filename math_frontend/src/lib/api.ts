@@ -15,6 +15,7 @@ export interface AttemptResult {
 
 export interface TutorResponse {
   answer: string;
+  model?: string;
 }
 
 const API_URL = import.meta.env.VITE_API_URL || "https://math-learning-app-backend-devin.fly.dev"
@@ -22,8 +23,9 @@ const API_URL = import.meta.env.VITE_API_URL || "https://math-learning-app-backe
 export const api = {
   getNextProblem: async (): Promise<Problem> => {
     console.log("Fetching next problem...")
-    const clientId = localStorage.getItem('client_id') || crypto.randomUUID()
-    if (!localStorage.getItem('client_id')) {
+    let clientId = localStorage.getItem('client_id')
+    if (!clientId) {
+      clientId = crypto.randomUUID()
       localStorage.setItem('client_id', clientId)
     }
     const response = await fetch(`${API_URL}/problems/next`, {
@@ -34,17 +36,15 @@ export const api = {
     if (!response.ok) throw new Error("获取题目失败")
     const problem = await response.json()
     console.log("Received new problem:", problem)
-    
-    // Store the client ID for future requests
-    if (!localStorage.getItem('client_id')) {
-      localStorage.setItem('client_id', response.headers.get('x-client-id') || crypto.randomUUID())
-    }
-    
     return problem
   },
 
   submitAnswer: async (problemId: string, answer: number): Promise<AttemptResult> => {
-    const clientId = localStorage.getItem('client_id') || crypto.randomUUID()
+    let clientId = localStorage.getItem('client_id')
+    if (!clientId) {
+      clientId = crypto.randomUUID()
+      localStorage.setItem('client_id', clientId)
+    }
     const response = await fetch(`${API_URL}/problems/submit`, {
       method: "POST",
       headers: { 
@@ -57,12 +57,12 @@ export const api = {
     return response.json()
   },
 
-  askTutor: async (userId: string, question: string): Promise<TutorResponse> => {
+  askTutor: async (userId: string, question: string, hintType: "quick_hint" | "deep_analysis"): Promise<TutorResponse> => {
     try {
       const response = await fetch(`${API_URL}/tutor/ask?service=deepseek`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, question })
+        body: JSON.stringify({ user_id: userId, question, hint_type: hintType })
       })
       if (!response.ok) {
         const error = await response.json().catch(() => ({ detail: "网络错误" }))

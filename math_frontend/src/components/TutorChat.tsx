@@ -8,22 +8,21 @@ interface TutorChatProps {
 }
 
 export function TutorChat({ problem }: TutorChatProps) {
-  const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
-    { 
-      role: "assistant", 
-      content: `你好！我是你的智能数学助教。这道题是关于${problem.knowledge_point}的，让我们一起来解决吧！\n\n你可以点击下面的按钮来获取提示或者解题思路，也可以直接问我问题。` 
-    }
-  ])
+  const [response, setResponse] = useState(`你好！我是黄小星，我使用 DeepSeek-R1 大模型来帮助你学习。这道题是关于${problem.knowledge_point}的，让我们一起来解决吧！`)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [inputValue, setInputValue] = useState("")
 
-  const askQuestion = async (question: string) => {
+  const askQuestion = async (question: string, hintType: "quick_hint" | "deep_analysis") => {
     setIsLoading(true)
     setError(null)
     try {
-      const response = await api.askTutor("student", question)
-      setMessages(prev => [...prev, { role: "user", content: question }, { role: "assistant", content: response.answer }])
+      const result = await api.askTutor("student", question, hintType)
+      const modelName = hintType === "quick_hint" ? "DeepSeek-V3" : "DeepSeek-R1"
+      setResponse(
+        `${result.answer}\n\n` +
+        `使用模型: ${modelName}\n` +
+        `${hintType === "quick_hint" ? "快速提示模式 ⚡️" : "深度分析模式 🔍"}`
+      )
     } catch (err: any) {
       const errorMessage = err.message === "AI助手服务未配置" 
         ? "智能助教暂时无法使用，请稍后再试" 
@@ -35,139 +34,50 @@ export function TutorChat({ problem }: TutorChatProps) {
   }
 
   return (
-    <div className="bg-white p-6 overflow-hidden flex flex-col h-[calc(100vh-12rem)]">
-      <div className="flex items-center gap-3 mb-6 shrink-0">
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center text-2xl shadow-lg transform hover:scale-110 transition-transform cursor-pointer">
-          {service === "openai" ? "🤖" : "⭐️"}
-        </div>
-        <div>
-          <h3 className="text-lg font-semibold bg-gradient-to-r from-blue-600 to-purple-600 bg-clip-text text-transparent">
-            黄小星
-          </h3>
-          <p className="text-sm text-gray-500">
-            让我们一起探索数学的奥秘吧！{service === "openai" ? "🚀" : "✨"}
-          </p>
-        </div>
-      </div>
-
-      <div className="flex-1 overflow-y-auto mb-6 space-y-4 pr-2">
-        {messages.map((msg, i) => (
-          <div
-            key={i}
-            className={`flex items-start gap-3 ${
-              msg.role === "user" ? "flex-row-reverse" : ""
-            }`}
-          >
-            <div
-              className={`w-8 h-8 rounded-full flex items-center justify-center shrink-0 ${
-                msg.role === "user" ? "bg-blue-50" : "bg-blue-100"
-              }`}
-            >
-              {msg.role === "user" ? "👤" : service === "openai" ? "🤖" : "🌟"}
-            </div>
-            <div
-              className={`p-4 rounded-lg flex-1 ${
-                msg.role === "user" 
-                  ? "bg-blue-50 rounded-tr-none shadow-sm" 
-                  : "bg-gradient-to-br from-purple-50 to-blue-50 rounded-tl-none shadow-sm"
-              }`}
-            >
-              <div className="whitespace-pre-wrap text-gray-800">{msg.content}</div>
-            </div>
+    <div className="space-y-3">
+      <div className="bg-white border-2 border-blue-100 rounded-lg p-4">
+        {isLoading ? (
+          <div className="flex items-center gap-2">
+            <span>🐱</span>
+            <p className="text-gray-600">黄小星正在思考中...</p>
           </div>
-        ))}
-        {isLoading && (
-          <div className="flex items-center gap-3 p-4 bg-blue-50/50 rounded-lg border border-blue-100">
-            <div className="relative">
-              <div className="w-8 h-8 rounded-full bg-gradient-to-br from-blue-400 to-purple-500 flex items-center justify-center">
-                {service === "openai" ? "🤖" : "⭐️"}
-              </div>
-              <div className="absolute inset-0 rounded-full border-2 border-blue-400 border-t-transparent animate-spin" />
-            </div>
-            <p className="text-blue-600">小星正在思考中...</p>
-          </div>
-        )}
-        {error && (
-          <div className="p-4 bg-red-50 text-red-600 rounded-lg border border-red-100 flex items-center gap-3">
-            <span className="text-xl">⚠️</span>
+        ) : error ? (
+          <div className="flex items-center gap-2 text-red-500">
+            <span>⚠️</span>
             <p>{error}</p>
           </div>
+        ) : (
+          <div className="space-y-4">
+            <div className="text-gray-800 whitespace-pre-wrap">{response}</div>
+          </div>
         )}
       </div>
 
-      <div className="space-y-4 shrink-0">
-        <div className="grid grid-cols-3 gap-3">
-          <Button
-            onClick={() => askQuestion("这道题我不太明白，能给我一些提示吗？")}
-            variant="secondary"
-            className="text-sm hover:bg-blue-200 transition-colors"
-            disabled={isLoading}
-          >
-            请求提示 💡
-          </Button>
-          <Button
-            onClick={() => askQuestion("能帮我分析一下这道题的解题思路吗？")}
-            variant="secondary"
-            className="text-sm hover:bg-blue-200 transition-colors"
-            disabled={isLoading}
-          >
-            分析思路 🤔
-          </Button>
-          <Button
-            onClick={() => askQuestion("这道题用什么方法解比较好呢？")}
-            variant="secondary"
-            className="text-sm hover:bg-blue-200 transition-colors"
-            disabled={isLoading}
-          >
-            解题方法 📝
-          </Button>
-        </div>
-        <div className="grid grid-cols-2 gap-3">
-          <Button
-            onClick={() => askQuestion("能给我一个类似的例题吗？")}
-            variant="secondary"
-            className="text-sm hover:bg-blue-200 transition-colors"
-            disabled={isLoading}
-          >
-            看例题 📚
-          </Button>
-          <Button
-            onClick={() => askQuestion("这道题的知识点是什么？能详细解释一下吗？")}
-            variant="secondary"
-            className="text-sm hover:bg-blue-200 transition-colors"
-            disabled={isLoading}
-          >
-            知识点 ⭐️
-          </Button>
-        </div>
-        
-        <div className="flex gap-2">
-          <input
-            type="text"
-            placeholder="输入你的问题..."
-            className="flex-1 px-4 py-2.5 border border-blue-100 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-400/30 focus:border-blue-400 transition-all bg-white/80 backdrop-blur-sm"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter" && inputValue.trim() && !isLoading) {
-                askQuestion(inputValue.trim())
-                setInputValue("")
-              }
-            }}
-            disabled={isLoading}
-          />
-          <Button
-            onClick={() => {
-              if (inputValue.trim() && !isLoading) {
-                askQuestion(inputValue.trim())
-                setInputValue("")
-              }
-            }}
-            disabled={!inputValue.trim() || isLoading}
-          >
-            发送
-          </Button>
-        </div>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          onClick={() => askQuestion("能给我一个提示吗？", "quick_hint")}
+          variant="secondary"
+          className="bg-white border-2 border-blue-100 hover:bg-blue-50"
+          disabled={isLoading}
+        >
+          请求提示 💡
+        </Button>
+        <Button
+          onClick={() => askQuestion("这道题的解题思路是什么？", "deep_analysis")}
+          variant="secondary"
+          className="bg-white border-2 border-blue-100 hover:bg-blue-50"
+          disabled={isLoading}
+        >
+          分析思路 🤔
+        </Button>
+        <Button
+          onClick={() => askQuestion("这道题考察了哪些知识点？", "quick_hint")}
+          variant="secondary"
+          className="bg-white border-2 border-blue-100 hover:bg-blue-50"
+          disabled={isLoading}
+        >
+          知识点 ⭐️
+        </Button>
       </div>
     </div>
   )
