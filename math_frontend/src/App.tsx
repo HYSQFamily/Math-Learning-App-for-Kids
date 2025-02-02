@@ -36,7 +36,10 @@ export default function App() {
       const result = await api.submitAnswer(problem.id, parseFloat(answer))
       if (result.is_correct) {
         setIsCorrect(true)
-        await fetchNextProblem()
+        const nextProblem = await api.getNextProblem()
+        setProblem(nextProblem)
+        setAnswer("")
+        focusAnswerInput()
       } else {
         setIsCorrect(false)
       }
@@ -46,13 +49,11 @@ export default function App() {
   }
 
   const focusAnswerInput = () => {
-    setTimeout(() => {
-      const input = document.querySelector("input[type=text]") as HTMLInputElement
-      if (input) {
-        input.focus()
-        input.scrollIntoView({ behavior: "smooth", block: "center" })
-      }
-    }, 100)
+    const input = document.querySelector("input[type=text]") as HTMLInputElement
+    if (input) {
+      input.focus()
+      input.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
   }
 
   return (
