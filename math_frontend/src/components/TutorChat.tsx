@@ -5,10 +5,9 @@ import type { Problem } from "../types"
 
 interface TutorChatProps {
   problem: Problem
-  service: "openai" | "deepseek"
 }
 
-export function TutorChat({ problem, service }: TutorChatProps) {
+export function TutorChat({ problem }: TutorChatProps) {
   const [messages, setMessages] = useState<{ role: "user" | "assistant"; content: string }[]>([
     { 
       role: "assistant", 
@@ -23,7 +22,7 @@ export function TutorChat({ problem, service }: TutorChatProps) {
     setIsLoading(true)
     setError(null)
     try {
-      const response = await api.askTutor("student", question, service)
+      const response = await api.askTutor("student", question)
       setMessages(prev => [...prev, { role: "user", content: question }, { role: "assistant", content: response.answer }])
     } catch (err: any) {
       const errorMessage = err.message === "AI助手服务未配置" 

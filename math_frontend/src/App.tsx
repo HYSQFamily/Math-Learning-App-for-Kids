@@ -1,7 +1,6 @@
 import { useState, useEffect } from "react"
 import type { Problem } from "./types"
 import { TutorChat } from "./components/TutorChat"
-import { ServicePicker } from "./components/ServicePicker"
 import { Button } from "./components/ui/button"
 import { api } from "./lib/api"
 import { isValidNumber } from "./lib/utils"
@@ -9,7 +8,6 @@ import { isValidNumber } from "./lib/utils"
 export default function App() {
   const [problem, setProblem] = useState<Problem | null>(null)
   const [answer, setAnswer] = useState("")
-  const [service, setService] = useState<"openai" | "deepseek">("deepseek")
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
   const [isTutorVisible, setIsTutorVisible] = useState(false)
 
@@ -58,9 +56,8 @@ export default function App() {
   return (
     <div className="min-h-screen bg-gray-50 py-8 px-4">
       <div className="max-w-4xl mx-auto">
-        <div className="mb-8 flex items-center justify-between">
+        <div className="mb-8">
           <h1 className="text-2xl font-bold text-gray-900">数学学习助手</h1>
-          <ServicePicker service={service} setService={setService} />
         </div>
 
         <div className="bg-white rounded-lg shadow p-6 mb-6">
@@ -158,7 +155,7 @@ export default function App() {
                   ❌
                 </Button>
               </div>
-              <TutorChat problem={problem} service={service} />
+              <TutorChat problem={problem} />
             </div>
           </div>
         )}
