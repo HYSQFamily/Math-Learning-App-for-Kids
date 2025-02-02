@@ -36,10 +36,10 @@ export default function App() {
       const result = await api.submitAnswer(problem.id, parseFloat(answer))
       if (result.is_correct) {
         setIsCorrect(true)
-        // Wait briefly to show success message, then transition
-        setTimeout(() => {
-          fetchNextProblem()
-        }, 500)
+        // Clear the answer input
+        setAnswer("")
+        // Fetch next problem immediately
+        fetchNextProblem()
       } else {
         setIsCorrect(false)
       }
