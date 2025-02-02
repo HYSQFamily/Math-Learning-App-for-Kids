@@ -35,11 +35,10 @@ export default function App() {
     try {
       const result = await api.submitAnswer(problem.id, parseFloat(answer))
       if (result.is_correct) {
-        setIsCorrect(true)
-        // Wait briefly to show success message
-        await new Promise(resolve => setTimeout(resolve, 500))
-        // Then fetch and set the next problem
+        // First fetch the next problem
         const nextProblem = await api.getNextProblem()
+        // Then update the UI states
+        setIsCorrect(true)
         setProblem(nextProblem)
         setAnswer("")
         focusAnswerInput()
