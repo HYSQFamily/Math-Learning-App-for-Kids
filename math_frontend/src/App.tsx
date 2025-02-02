@@ -34,9 +34,11 @@ export default function App() {
 
     try {
       const result = await api.submitAnswer(problem.id, parseFloat(answer))
-      setIsCorrect(result.is_correct)
       if (result.is_correct) {
-        fetchNextProblem()
+        setIsCorrect(true)
+        await fetchNextProblem()
+      } else {
+        setIsCorrect(false)
       }
     } catch (error) {
       console.error("提交答案失败:", error)
