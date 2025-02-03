@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import type { Problem } from "./types"
 import { TutorChat } from "./components/TutorChat"
 import { Button } from "./components/ui/button"
@@ -9,11 +9,18 @@ export default function App() {
   const [problem, setProblem] = useState<Problem | null>(null)
   const [answer, setAnswer] = useState("")
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
-  // Tutor is always visible now
+  const answerInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchNextProblem()
   }, [])
+
+  useEffect(() => {
+    if (problem && answerInputRef.current) {
+      answerInputRef.current.focus()
+      answerInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
+  }, [problem])
 
   const fetchNextProblem = async () => {
     try {
@@ -22,10 +29,7 @@ export default function App() {
       setProblem(nextProblem)
       setAnswer("")
       setIsCorrect(null)
-      // Focus input after a brief delay to ensure DOM is ready
-      setTimeout(() => {
-        focusAnswerInput()
-      }, 100)
+      // State updates will trigger useEffect for focus management
     } catch (error) {
       console.error("获取题目失败:", error)
     }
@@ -49,14 +53,6 @@ export default function App() {
       }
     } catch (error) {
       console.error("提交答案失败:", error)
-    }
-  }
-
-  const focusAnswerInput = () => {
-    const input = document.querySelector("input[type=text]") as HTMLInputElement
-    if (input) {
-      input.focus()
-      input.scrollIntoView({ behavior: "smooth", block: "center" })
     }
   }
 
@@ -95,7 +91,7 @@ export default function App() {
                   onChange={(e) => setAnswer(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
                   className="w-full px-3 py-2 border rounded-md"
-                  autoFocus
+                  ref={answerInputRef}
                 />
               </div>
 
