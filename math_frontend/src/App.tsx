@@ -22,11 +22,13 @@ declare global {
 }
 
 interface State {
-  status: "idle" | "submitting" | "fetching" | "error"
+  status: "idle" | "submitting" | "fetching" | "transitioning" | "error"
+  lastCorrectTime: number | null
   problem: Problem | null
   answer: string
   isCorrect: boolean | null
   error: string | null
+  nextProblem: Problem | null
 }
 
 type Action =
@@ -37,17 +39,36 @@ type Action =
   | { type: "SET_ANSWER"; payload: string }
   | { type: "SET_ERROR"; payload: string }
   | { type: "RESET_CORRECT" }
+  | { type: "TRANSITION_TO_NEXT" }
 
 function reducer(state: State, action: Action): State {
+  console.log("Reducer action:", action.type, action)
+  
   switch (action.type) {
     case "SUBMIT_START":
       return { ...state, status: "submitting", error: null }
     case "SUBMIT_SUCCESS":
+      if (action.payload.isCorrect) {
+        return {
+          ...state,
+          status: "transitioning",
+          isCorrect: true,
+          answer: "",
+          lastCorrectTime: Date.now()
+        }
+      }
       return {
         ...state,
-        status: action.payload.isCorrect ? "fetching" : "idle",
-        isCorrect: action.payload.isCorrect,
-        answer: action.payload.isCorrect ? "" : state.answer
+        status: "idle",
+        isCorrect: false
+      }
+    case "NEXT_PROBLEM_START":
+      return {
+        ...state,
+        status: "fetching",
+        problem: null,
+        isCorrect: null,
+        error: null
       }
     case "NEXT_PROBLEM_SUCCESS":
       return {
@@ -55,7 +76,9 @@ function reducer(state: State, action: Action): State {
         status: "idle",
         problem: action.payload.problem,
         answer: "",
-        isCorrect: null  // Reset isCorrect for the new problem
+        isCorrect: null,
+        error: null,
+        lastCorrectTime: null
       }
     case "SET_ANSWER":
       return { ...state, answer: action.payload }
@@ -73,7 +96,9 @@ const initialState: State = {
   problem: null,
   answer: "",
   isCorrect: null,
-  error: null
+  error: null,
+  lastCorrectTime: null,
+  nextProblem: null
 }
 
 export default function App() {
@@ -84,14 +109,38 @@ export default function App() {
     fetchNextProblem()
   }, [])
 
+  // Handle focus management and state transitions
   useEffect(() => {
-    if (state.problem && answerInputRef.current) {
-      setTimeout(() => {
-        answerInputRef.current?.focus()
-        answerInputRef.current?.scrollIntoView({ behavior: "smooth", block: "center" })
-      }, 100)
+    if (state.status === "transitioning" && state.isCorrect === true) {
+      // First reset the correct state
+      dispatch({ type: "RESET_CORRECT" })
+      
+      // Then focus the input field after DOM updates
+      const focusInput = () => {
+        if (answerInputRef.current) {
+          answerInputRef.current.focus()
+          answerInputRef.current.scrollIntoView({ 
+            behavior: "smooth", 
+            block: "center" 
+          })
+          console.log("输入框已获得焦点")
+        }
+      }
+
+      // Use double requestAnimationFrame to ensure DOM is fully updated
+      requestAnimationFrame(() => {
+        requestAnimationFrame(focusInput)
+      })
     }
-  }, [state.problem])
+  }, [state.status, state.isCorrect])
+
+  // Ensure focus on initial load and after problem changes
+  useEffect(() => {
+    if (state.status === "idle" && state.problem && answerInputRef.current) {
+      answerInputRef.current.focus()
+      console.log("初始化输入框焦点")
+    }
+  }, [state.status, state.problem?.id])
 
   const fetchNextProblem = async () => {
     try {
@@ -105,50 +154,46 @@ export default function App() {
   }
 
   const handleSubmit = async () => {
-    if (!state.problem || !isValidNumber(state.answer) || state.status === "submitting" || state.status === "fetching") {
+    if (!state.problem || !isValidNumber(state.answer) || state.status !== "idle") {
       console.log("提交验证失败:", { problem: !!state.problem, isValid: isValidNumber(state.answer), status: state.status })
       return
     }
 
     const currentAnswer = state.answer.trim()
-    console.log("开始提交答案:", { problemId: state.problem.id, answer: currentAnswer })
-    dispatch({ type: "SUBMIT_START" })
-
+    const currentProblem = state.problem
+    console.log("开始提交答案:", { problemId: currentProblem.id, answer: currentAnswer })
+    
     try {
-      const result = await api.submitAnswer(state.problem.id, parseFloat(currentAnswer))
+      dispatch({ type: "SUBMIT_START" })
+      const result = await api.submitAnswer(currentProblem.id, parseFloat(currentAnswer))
       console.log("收到提交结果:", result)
       
       if (result.is_correct) {
         console.log("答案正确，准备加载下一题")
+        // First mark as correct and transition
         dispatch({ type: "SUBMIT_SUCCESS", payload: { isCorrect: true } })
         
-        // Start fetching next problem immediately
-        console.log("开始获取下一题")
-        const nextProblemPromise = api.getNextProblem()
-        
-        // Show brief success feedback and ensure state updates are processed
-        await new Promise(resolve => setTimeout(resolve, 100))
-        
         try {
-          const nextProblem = await nextProblemPromise
+          // Pre-fetch next problem
+          const nextProblem = await api.getNextProblem()
           console.log("获取到下一题:", nextProblem)
           
-          // Use microtask to ensure state updates are processed
-          await Promise.resolve()
-          
-          dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem: nextProblem } })
-          console.log("已更新下一题状态")
-          
-          // Focus input after state update using microtask
-          queueMicrotask(() => {
-            if (answerInputRef.current) {
-              answerInputRef.current.focus()
-              answerInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
-              console.log("输入框已获得焦点")
-            } else {
-              console.warn("未找到输入框元素")
-            }
-          })
+          if (nextProblem) {
+            // Use requestAnimationFrame to ensure DOM has updated
+            requestAnimationFrame(() => {
+              dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem: nextProblem } })
+              // Ensure input focus after state update
+              requestAnimationFrame(() => {
+                if (answerInputRef.current) {
+                  answerInputRef.current.focus()
+                  answerInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
+                  console.log("新题目输入框已获得焦点")
+                }
+              })
+            })
+          } else {
+            dispatch({ type: "SET_ERROR", payload: "获取下一题失败，请刷新页面重试" })
+          }
         } catch (error: any) {
           console.error("获取下一题失败:", error)
           dispatch({ type: "SET_ERROR", payload: error.message || "获取下一题失败，请刷新页面重试" })
