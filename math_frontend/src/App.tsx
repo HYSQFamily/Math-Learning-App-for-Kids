@@ -1,19 +1,42 @@
-import { useState, useEffect } from "react"
+import * as React from "react"
+import { useState, useEffect, useRef } from "react"
 import type { Problem } from "./types"
 import { TutorChat } from "./components/TutorChat"
 import { Button } from "./components/ui/button"
 import { api } from "./lib/api"
 import { isValidNumber } from "./lib/utils"
 
+// Add React to global scope for JSX
+declare global {
+  namespace JSX {
+    interface IntrinsicElements {
+      div: React.DetailedHTMLProps<React.HTMLAttributes<HTMLDivElement>, HTMLDivElement>
+      input: React.DetailedHTMLProps<React.InputHTMLAttributes<HTMLInputElement>, HTMLInputElement>
+      label: React.DetailedHTMLProps<React.LabelHTMLAttributes<HTMLLabelElement>, HTMLLabelElement>
+      span: React.DetailedHTMLProps<React.HTMLAttributes<HTMLSpanElement>, HTMLSpanElement>
+      h1: React.DetailedHTMLProps<React.HTMLAttributes<HTMLHeadingElement>, HTMLHeadingElement>
+      h2: React.DetailedHTMLProps<React.HTMLAttributes<HTMLHeadingElement>, HTMLHeadingElement>
+      p: React.DetailedHTMLProps<React.HTMLAttributes<HTMLParagraphElement>, HTMLParagraphElement>
+    }
+  }
+}
+
 export default function App() {
   const [problem, setProblem] = useState<Problem | null>(null)
   const [answer, setAnswer] = useState("")
   const [isCorrect, setIsCorrect] = useState<boolean | null>(null)
-  // Tutor is always visible now
+  const answerInputRef = useRef<HTMLInputElement>(null)
 
   useEffect(() => {
     fetchNextProblem()
   }, [])
+
+  useEffect(() => {
+    if (problem && answerInputRef.current) {
+      answerInputRef.current.focus()
+      answerInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
+    }
+  }, [problem])
 
   const fetchNextProblem = async () => {
     try {
@@ -22,10 +45,7 @@ export default function App() {
       setProblem(nextProblem)
       setAnswer("")
       setIsCorrect(null)
-      // Focus input after a brief delay to ensure DOM is ready
-      setTimeout(() => {
-        focusAnswerInput()
-      }, 100)
+      // State updates will trigger useEffect for focus management
     } catch (error) {
       console.error("获取题目失败:", error)
     }
@@ -35,28 +55,16 @@ export default function App() {
     if (!problem || !isValidNumber(answer)) return
 
     try {
-      console.log("Submitting answer:", answer)
       const result = await api.submitAnswer(problem.id, parseFloat(answer))
-      setIsCorrect(result.is_correct)
       
       if (result.is_correct) {
-        console.log("Answer correct, fetching next problem...")
-        setAnswer("")
-        setIsCorrect(true)
-        // Immediately fetch next problem and reset state
-        await fetchNextProblem()
+        // Batch state updates together
+        await fetchNextProblem() // This will trigger useEffect for focus management
+      } else {
         setIsCorrect(false)
       }
     } catch (error) {
       console.error("提交答案失败:", error)
-    }
-  }
-
-  const focusAnswerInput = () => {
-    const input = document.querySelector("input[type=text]") as HTMLInputElement
-    if (input) {
-      input.focus()
-      input.scrollIntoView({ behavior: "smooth", block: "center" })
     }
   }
 
@@ -95,7 +103,7 @@ export default function App() {
                   onChange={(e) => setAnswer(e.target.value)}
                   onKeyDown={(e) => e.key === "Enter" && handleSubmit()}
                   className="w-full px-3 py-2 border rounded-md"
-                  autoFocus
+                  ref={answerInputRef}
                 />
               </div>
 
