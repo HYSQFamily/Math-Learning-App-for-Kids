@@ -2,13 +2,15 @@ import { useState } from "react"
 import { Button } from "./ui/button"
 import { api } from "../lib/api"
 import type { Problem } from "../types"
+import { TutorGuidance } from "./TutorGuidance"
 
 interface TutorChatProps {
   problem: Problem
 }
 
 export function TutorChat({ problem }: TutorChatProps) {
-  const [response, setResponse] = useState(`你好！我是黄小星，我使用 DeepSeek-R1 大模型来帮助你学习。这道题是关于${problem.knowledge_point}的，让我们一起来解决吧！`)
+  const [showGuidance, setShowGuidance] = useState(false)
+  const [response, setResponse] = useState(`你好！我是黄小星，让我们一起来解决这道${problem.knowledge_point}的题目吧！`)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -17,16 +19,13 @@ export function TutorChat({ problem }: TutorChatProps) {
     setError(null)
     try {
       const result = await api.askTutor("student", question, hintType)
-      const modelName = hintType === "quick_hint" ? "DeepSeek-V3" : "DeepSeek-R1"
       setResponse(
-        `${result.answer}\n\n` +
-        `使用模型: ${modelName}\n` +
-        `${hintType === "quick_hint" ? "快速提示模式 ⚡️" : "深度分析模式 🔍"}`
+        `${result.answer}${showGuidance && result.model ? `\n\n【使用模型: ${result.model}】` : ""}`
       )
     } catch (err: any) {
       const errorMessage = err.message === "AI助手服务未配置" 
-        ? "智能助教暂时无法使用，请稍后再试" 
-        : err.message || "请求失败，请稍后再试"
+        ? "小星暂时休息了，请稍后再试" 
+        : err.message || "对不起，我现在有点累，请稍后再试"
       setError(errorMessage)
     } finally {
       setIsLoading(false)
@@ -55,30 +54,41 @@ export function TutorChat({ problem }: TutorChatProps) {
 
       <div className="flex flex-wrap gap-2">
         <Button
-          onClick={() => askQuestion("能给我一个提示吗？", "quick_hint")}
+          onClick={() => askQuestion("给我一点小提示吧", "quick_hint")}
           variant="secondary"
-          className="bg-white border-2 border-blue-100 hover:bg-blue-50"
+          className="bg-white border-2 border-blue-100 hover:bg-blue-50 text-lg"
           disabled={isLoading}
         >
-          请求提示 💡
+          给点线索 🎯
         </Button>
         <Button
-          onClick={() => askQuestion("这道题的解题思路是什么？", "deep_analysis")}
+          onClick={() => askQuestion("这道题要怎么想呢？", "deep_analysis")}
           variant="secondary"
-          className="bg-white border-2 border-blue-100 hover:bg-blue-50"
+          className="bg-white border-2 border-blue-100 hover:bg-blue-50 text-lg"
           disabled={isLoading}
         >
-          分析思路 🤔
+          帮我想想 🤔
         </Button>
         <Button
-          onClick={() => askQuestion("这道题考察了哪些知识点？", "quick_hint")}
+          onClick={() => askQuestion("我想要更多帮助", "deep_analysis")}
           variant="secondary"
-          className="bg-white border-2 border-blue-100 hover:bg-blue-50"
+          className="bg-white border-2 border-blue-100 hover:bg-blue-50 text-lg"
           disabled={isLoading}
         >
-          知识点 ⭐️
+          更多帮助 ✨
         </Button>
       </div>
+
+      <Button
+        onClick={() => setShowGuidance(prev => !prev)}
+        variant="ghost"
+        className="mt-2 text-gray-500 hover:text-gray-700"
+        disabled={isLoading}
+      >
+        {showGuidance ? "隐藏家长指导 👨‍👩‍👧‍👦" : "家长/老师指导 👨‍👩‍👧‍👦"}
+      </Button>
+
+      {showGuidance && <TutorGuidance problem={problem} />}
     </div>
   )
 }
