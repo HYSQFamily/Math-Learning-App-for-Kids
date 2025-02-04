@@ -22,25 +22,19 @@ declare global {
 }
 
 interface State {
-  status: "idle" | "submitting" | "fetching" | "transitioning" | "error"
-  lastCorrectTime: number | null
+  status: "idle" | "loading" | "submitting" | "error"
   problem: Problem | null
   answer: string
   isCorrect: boolean | null
   error: string | null
-  nextProblem: Problem | null
 }
 
 type Action =
   | { type: "SUBMIT_START" }
   | { type: "SUBMIT_SUCCESS"; payload: { isCorrect: boolean } }
-  | { type: "NEXT_PROBLEM_START" }
-  | { type: "NEXT_PROBLEM_SUCCESS"; payload: { problem: Problem; isCorrect?: boolean } }
+  | { type: "NEXT_PROBLEM_SUCCESS"; payload: Problem }
   | { type: "SET_ANSWER"; payload: string }
   | { type: "SET_ERROR"; payload: string }
-  | { type: "RESET_CORRECT" }
-  | { type: "TRANSITION_TO_NEXT" }
-  | { type: "TRANSITION_COMPLETE" }
 
 function reducer(state: State, action: Action): State {
   console.log("Reducer action:", action.type, action)
@@ -48,58 +42,48 @@ function reducer(state: State, action: Action): State {
   switch (action.type) {
     case "SUBMIT_START":
       return { ...state, status: "submitting", error: null }
+      
     case "SUBMIT_SUCCESS":
       if (action.payload.isCorrect) {
         return {
           ...state,
-          status: "idle",
+          status: "loading",
           isCorrect: true,
           answer: "",
-          lastCorrectTime: Date.now()
+          error: null
         }
       }
       return {
         ...state,
         status: "idle",
-        isCorrect: false
+        isCorrect: false,
+        error: null
       }
-    case "TRANSITION_TO_NEXT":
+      
+    case "NEXT_PROBLEM_SUCCESS":
       return {
-        ...state,
-        status: "transitioning",
-        problem: null,
-        isCorrect: null
-      }
-    case "TRANSITION_COMPLETE":
-      return {
-        ...state,
-        status: "idle",
-        isCorrect: null
-      }
-    case "NEXT_PROBLEM_START":
-      return {
-        ...state,
-        status: "fetching",
-        problem: null,
+        status: "idle", // Force status to idle
+        problem: action.payload,
+        answer: "",
         isCorrect: null,
         error: null
       }
-    case "NEXT_PROBLEM_SUCCESS":
-      return {
-        ...state,
-        status: "idle",
-        problem: action.payload.problem,
-        answer: "",
-        isCorrect: action.payload.isCorrect ?? null,
-        error: null,
-        lastCorrectTime: action.payload.isCorrect ? Date.now() : null
-      }
+      
     case "SET_ANSWER":
-      return { ...state, answer: action.payload }
+      return { 
+        ...state, 
+        answer: action.payload,
+        error: null // Clear any previous errors
+      }
+      
     case "SET_ERROR":
-      return { ...state, status: "error", error: action.payload }
-    case "RESET_CORRECT":
-      return { ...state, isCorrect: null }
+      return { 
+        ...state, 
+        status: "error", 
+        error: action.payload,
+        isCorrect: null // Reset correctness state on error
+      }
+      
     default:
       return state
   }
@@ -110,9 +94,7 @@ const initialState: State = {
   problem: null,
   answer: "",
   isCorrect: null,
-  error: null,
-  lastCorrectTime: null,
-  nextProblem: null
+  error: null
 }
 
 export default function App() {
@@ -123,27 +105,12 @@ export default function App() {
     fetchNextProblem()
   }, [])
 
-  // Handle transitions and fetch next problem
+  // Focus management after state updates
   useEffect(() => {
-    if (state.status === "transitioning") {
-      console.log("状态转换中，开始获取下一题")
-      fetchNextProblem().then(() => {
-        dispatch({ type: "TRANSITION_COMPLETE" })
-      }).catch(error => {
-        console.error("获取下一题失败:", error)
-        dispatch({ type: "SET_ERROR", payload: error.message || "获取下一题失败，请刷新页面重试" })
-      })
-    }
-  }, [state.status])
-
-  // Unified focus management
-  useEffect(() => {
-    // Only focus when we have a problem and are in idle state
     if (state.status === "idle" && state.problem && state.isCorrect === null) {
       console.log("准备聚焦到输入框")
-      
-      // Use RAF chain to ensure DOM is fully updated and animations complete
-      const focusInput = () => {
+      // Use MutationObserver to ensure DOM is fully updated
+      const observer = new MutationObserver((mutations, obs) => {
         if (answerInputRef.current) {
           answerInputRef.current.focus()
           answerInputRef.current.scrollIntoView({ 
@@ -151,23 +118,31 @@ export default function App() {
             block: "center" 
           })
           console.log("输入框已获得焦点")
+          obs.disconnect()
         }
-      }
-
-      // Triple RAF to ensure all state updates and animations are complete
-      requestAnimationFrame(() => {
-        requestAnimationFrame(() => {
-          requestAnimationFrame(focusInput)
-        })
       })
+      
+      observer.observe(document.body, {
+        childList: true,
+        subtree: true
+      })
+      
+      // Cleanup observer after 1 second if no mutations occur
+      const timeout = setTimeout(() => {
+        observer.disconnect()
+      }, 1000)
+      
+      return () => {
+        observer.disconnect()
+        clearTimeout(timeout)
+      }
     }
   }, [state.status, state.problem?.id, state.isCorrect])
 
   const fetchNextProblem = async () => {
     try {
-      dispatch({ type: "NEXT_PROBLEM_START" })
       const nextProblem = await api.getNextProblem()
-      dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem: nextProblem } })
+      dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: nextProblem })
     } catch (error: any) {
       console.error("获取题目失败:", error)
       dispatch({ type: "SET_ERROR", payload: error.message || "获取题目失败，请刷新页面重试" })
@@ -185,37 +160,34 @@ export default function App() {
     console.log("开始提交答案:", { problemId: currentProblem.id, answer: currentAnswer })
     
     try {
-      // Start both API calls in parallel
-      const [submitResult, nextProblem] = await Promise.all([
-        api.submitAnswer(currentProblem.id, parseFloat(currentAnswer)),
-        api.getNextProblem()
-      ])
+      dispatch({ type: "SUBMIT_START" })
       
+      // Pre-fetch next problem before submitting answer
+      const nextProblemPromise = api.getNextProblem()
+      
+      const submitResult = await api.submitAnswer(currentProblem.id, parseFloat(currentAnswer))
       console.log("收到提交结果:", submitResult)
       
       if (submitResult.is_correct) {
-        console.log("答案正确，立即切换到下一题")
+        // Update submission result
+        dispatch({ type: "SUBMIT_SUCCESS", payload: { isCorrect: true } })
+        console.log("答案正确，准备切换到下一题")
         
-        // Dispatch state updates in a single batch
-        dispatch({ 
-          type: "NEXT_PROBLEM_SUCCESS", 
-          payload: { 
-            problem: nextProblem,
-            isCorrect: true 
-          } 
-        })
+        // Wait for pre-fetched problem
+        const nextProblem = await nextProblemPromise
+        dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: nextProblem })
+        console.log("已切换到下一题")
         
-        // Focus input after state update is complete
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            if (answerInputRef.current) {
-              answerInputRef.current.focus()
-              answerInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
-            }
-          })
-        })
+        // Ensure focus is set after state updates
+        setTimeout(() => {
+          if (answerInputRef.current) {
+            answerInputRef.current.focus()
+            answerInputRef.current.value = ""
+            answerInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
+            console.log("新题目输入框已获得焦点")
+          }
+        }, 0)
       } else {
-        console.log("答案错误")
         dispatch({ type: "SUBMIT_SUCCESS", payload: { isCorrect: false } })
       }
     } catch (error: any) {
@@ -275,13 +247,13 @@ export default function App() {
                 <Button 
                   onClick={handleSubmit} 
                   className="px-6"
-                  disabled={state.status === "submitting" || state.status === "fetching"}
+                  disabled={state.status === "submitting" || state.status === "loading"}
                 >
-                  {state.status === "submitting" || state.status === "fetching" ? "提交中..." : "提交答案"}
+                  {state.status === "submitting" || state.status === "loading" ? "提交中..." : "提交答案"}
                 </Button>
               </div>
 
-              {(state.status === "submitting" || state.status === "fetching") && (
+              {(state.status === "submitting" || state.status === "loading") && (
                 <div className="mt-4 p-3 rounded bg-blue-50 text-blue-800 flex items-center gap-2">
                   <div className="w-4 h-4 border-2 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
                   <span>正在加载下一道题，请稍候...</span>
