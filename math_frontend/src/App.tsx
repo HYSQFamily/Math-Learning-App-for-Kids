@@ -164,39 +164,24 @@ export default function App() {
     console.log("开始提交答案:", { problemId: currentProblem.id, answer: currentAnswer })
     
     try {
+      // Start submission and pre-fetch next problem in parallel
       dispatch({ type: "SUBMIT_START" })
-      const result = await api.submitAnswer(currentProblem.id, parseFloat(currentAnswer))
+      const [result, nextProblem] = await Promise.all([
+        api.submitAnswer(currentProblem.id, parseFloat(currentAnswer)),
+        api.getNextProblem()
+      ])
+      
       console.log("收到提交结果:", result)
       
       if (result.is_correct) {
-        console.log("答案正确，准备加载下一题")
-        // First mark as correct and transition
+        console.log("答案正确，立即加载下一题")
         dispatch({ type: "SUBMIT_SUCCESS", payload: { isCorrect: true } })
         
-        try {
-          // Pre-fetch next problem
-          const nextProblem = await api.getNextProblem()
-          console.log("获取到下一题:", nextProblem)
-          
-          if (nextProblem) {
-            // Use requestAnimationFrame to ensure DOM has updated
-            requestAnimationFrame(() => {
-              dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem: nextProblem } })
-              // Ensure input focus after state update
-              requestAnimationFrame(() => {
-                if (answerInputRef.current) {
-                  answerInputRef.current.focus()
-                  answerInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
-                  console.log("新题目输入框已获得焦点")
-                }
-              })
-            })
-          } else {
-            dispatch({ type: "SET_ERROR", payload: "获取下一题失败，请刷新页面重试" })
-          }
-        } catch (error: any) {
-          console.error("获取下一题失败:", error)
-          dispatch({ type: "SET_ERROR", payload: error.message || "获取下一题失败，请刷新页面重试" })
+        // Immediately transition to next problem
+        if (nextProblem) {
+          dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem: nextProblem } })
+        } else {
+          dispatch({ type: "SET_ERROR", payload: "获取下一题失败，请刷新页面重试" })
         }
       } else {
         console.log("答案错误")
