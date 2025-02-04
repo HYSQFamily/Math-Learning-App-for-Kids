@@ -1,11 +1,4 @@
-export interface Problem {
-  id: string;
-  question: string;
-  answer: number;
-  hints: string[];
-  knowledge_point: string;
-  related_points?: string[];
-}
+import type { Problem } from '../types'
 
 export interface AttemptResult {
   is_correct: boolean;
@@ -18,7 +11,7 @@ export interface TutorResponse {
   model?: string;
 }
 
-const API_URL = import.meta.env.VITE_API_URL || "https://math-learning-app-backend-devin.fly.dev"
+const API_URL = (import.meta as any).env.VITE_API_URL || "http://localhost:8000"
 
 export const api = {
   getNextProblem: async (): Promise<Problem> => {
