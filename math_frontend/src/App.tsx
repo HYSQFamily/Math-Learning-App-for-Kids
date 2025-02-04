@@ -40,6 +40,7 @@ type Action =
   | { type: "SET_ERROR"; payload: string }
   | { type: "RESET_CORRECT" }
   | { type: "TRANSITION_TO_NEXT" }
+  | { type: "TRANSITION_COMPLETE" }
 
 function reducer(state: State, action: Action): State {
   console.log("Reducer action:", action.type, action)
@@ -51,7 +52,7 @@ function reducer(state: State, action: Action): State {
       if (action.payload.isCorrect) {
         return {
           ...state,
-          status: "transitioning",
+          status: "idle",
           isCorrect: true,
           answer: "",
           lastCorrectTime: Date.now()
@@ -61,6 +62,19 @@ function reducer(state: State, action: Action): State {
         ...state,
         status: "idle",
         isCorrect: false
+      }
+    case "TRANSITION_TO_NEXT":
+      return {
+        ...state,
+        status: "transitioning",
+        problem: null,
+        isCorrect: null
+      }
+    case "TRANSITION_COMPLETE":
+      return {
+        ...state,
+        status: "idle",
+        isCorrect: null
       }
     case "NEXT_PROBLEM_START":
       return {
@@ -109,13 +123,26 @@ export default function App() {
     fetchNextProblem()
   }, [])
 
-  // Handle focus management and state transitions
+  // Handle transitions and fetch next problem
   useEffect(() => {
-    if (state.status === "transitioning" && state.isCorrect === true) {
-      // First reset the correct state
-      dispatch({ type: "RESET_CORRECT" })
+    if (state.status === "transitioning") {
+      console.log("状态转换中，开始获取下一题")
+      fetchNextProblem().then(() => {
+        dispatch({ type: "TRANSITION_COMPLETE" })
+      }).catch(error => {
+        console.error("获取下一题失败:", error)
+        dispatch({ type: "SET_ERROR", payload: error.message || "获取下一题失败，请刷新页面重试" })
+      })
+    }
+  }, [state.status])
+
+  // Unified focus management
+  useEffect(() => {
+    // Only focus when we have a problem and are in idle state
+    if (state.status === "idle" && state.problem && state.isCorrect === null) {
+      console.log("准备聚焦到输入框")
       
-      // Then focus the input field after DOM updates
+      // Use RAF chain to ensure DOM is fully updated and animations complete
       const focusInput = () => {
         if (answerInputRef.current) {
           answerInputRef.current.focus()
@@ -127,20 +154,14 @@ export default function App() {
         }
       }
 
-      // Use double requestAnimationFrame to ensure DOM is fully updated
+      // Triple RAF to ensure all state updates and animations are complete
       requestAnimationFrame(() => {
-        requestAnimationFrame(focusInput)
+        requestAnimationFrame(() => {
+          requestAnimationFrame(focusInput)
+        })
       })
     }
-  }, [state.status, state.isCorrect])
-
-  // Ensure focus on initial load and after problem changes
-  useEffect(() => {
-    if (state.status === "idle" && state.problem && answerInputRef.current) {
-      answerInputRef.current.focus()
-      console.log("初始化输入框焦点")
-    }
-  }, [state.status, state.problem?.id])
+  }, [state.status, state.problem?.id, state.isCorrect])
 
   const fetchNextProblem = async () => {
     try {
@@ -164,22 +185,20 @@ export default function App() {
     console.log("开始提交答案:", { problemId: currentProblem.id, answer: currentAnswer })
     
     try {
-      // Start submission and pre-fetch next problem in parallel
       dispatch({ type: "SUBMIT_START" })
-      const [result, nextProblem] = await Promise.all([
-        api.submitAnswer(currentProblem.id, parseFloat(currentAnswer)),
-        api.getNextProblem()
-      ])
+      const result = await api.submitAnswer(currentProblem.id, parseFloat(currentAnswer))
       
       console.log("收到提交结果:", result)
       
       if (result.is_correct) {
-        console.log("答案正确，立即加载下一题")
+        console.log("答案正确，开始转换到下一题")
         dispatch({ type: "SUBMIT_SUCCESS", payload: { isCorrect: true } })
+        dispatch({ type: "TRANSITION_TO_NEXT" })
         
-        // Immediately transition to next problem
+        const nextProblem = await api.getNextProblem()
         if (nextProblem) {
           dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem: nextProblem } })
+          dispatch({ type: "TRANSITION_COMPLETE" })
         } else {
           dispatch({ type: "SET_ERROR", payload: "获取下一题失败，请刷新页面重试" })
         }
