@@ -193,12 +193,25 @@ export default function App() {
       if (result.is_correct) {
         console.log("答案正确，开始转换到下一题")
         dispatch({ type: "SUBMIT_SUCCESS", payload: { isCorrect: true } })
-        dispatch({ type: "TRANSITION_TO_NEXT" })
         
+        // Wait for state update to complete
+        await new Promise(resolve => requestAnimationFrame(resolve))
+        
+        // Start transition and fetch next problem in parallel
+        dispatch({ type: "TRANSITION_TO_NEXT" })
         const nextProblem = await api.getNextProblem()
+        
         if (nextProblem) {
-          dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem: nextProblem } })
-          dispatch({ type: "TRANSITION_COMPLETE" })
+          // Ensure DOM updates are complete before state changes
+          await new Promise(resolve => requestAnimationFrame(() => {
+            requestAnimationFrame(() => {
+              dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem: nextProblem } })
+              requestAnimationFrame(() => {
+                dispatch({ type: "TRANSITION_COMPLETE" })
+                resolve(null)
+              })
+            })
+          }))
         } else {
           dispatch({ type: "SET_ERROR", payload: "获取下一题失败，请刷新页面重试" })
         }
