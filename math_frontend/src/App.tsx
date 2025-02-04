@@ -11,6 +11,20 @@ function App() {
   const [isLoading, setIsLoading] = useState(false)
   const answerInputRef = useRef<HTMLInputElement>(null)
   
+  // Handle focus management when problem changes or answer resets
+  useEffect(() => {
+    if (isCorrect === null && answerInputRef.current) {
+      console.log("设置输入框焦点...")
+      answerInputRef.current.value = "" // Clear input value
+      answerInputRef.current.focus()
+      answerInputRef.current.scrollIntoView({
+        behavior: "instant",
+        block: "center" 
+      })
+      console.log("输入框已清空并获得焦点")
+    }
+  }, [isCorrect, problem])
+  
   const userId = useMemo(() => Math.random().toString(36).substring(2, 15), [])
 
   const loadProblem = useCallback(async () => {
@@ -56,29 +70,34 @@ function App() {
 
     try {
       setIsLoading(true)
+      console.log("开始提交答案...")
+      
       const result = await api.submitAnswer(problem.id, answer)
       
       if (result.is_correct) {
-        setIsCorrect(true)
-        console.log("答案正确，准备加载下一题")
+        console.log("答案正确，准备切换到下一题")
         
-        // Clear input and load next problem immediately
+        // Clear input and mark as correct
         answerInputRef.current.value = ""
-        const nextProblem = await api.getNextProblem()
-        setProblem(nextProblem)
-        setIsCorrect(null)
+        setIsCorrect(true)
         
-        // Ensure focus after state updates
-        queueMicrotask(() => {
-          if (answerInputRef.current) {
-            answerInputRef.current.focus()
-            answerInputRef.current.scrollIntoView({ 
-              behavior: "instant",
-              block: "center" 
-            })
-            console.log("下一题输入框已获得焦点")
-          }
-        })
+        try {
+          // Get next problem
+          const nextProblem = await api.getNextProblem()
+          console.log("下一题已加载完成")
+          
+          // Update problem state
+          setProblem(nextProblem)
+          
+          // Focus input in next frame after state updates
+          // Update state and focus with a longer delay
+          console.log("开始处理下一题...")
+          setAnswer("") // Clear answer state immediately
+          setIsCorrect(null) // Reset correct state immediately
+        } catch (error) {
+          console.error("加载下一题失败:", error)
+          setIsCorrect(null)
+        }
       } else {
         setIsCorrect(false)
         console.log("答案错误")
