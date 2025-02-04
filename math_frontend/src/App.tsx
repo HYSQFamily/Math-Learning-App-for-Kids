@@ -35,7 +35,7 @@ type Action =
   | { type: "SUBMIT_START" }
   | { type: "SUBMIT_SUCCESS"; payload: { isCorrect: boolean } }
   | { type: "NEXT_PROBLEM_START" }
-  | { type: "NEXT_PROBLEM_SUCCESS"; payload: { problem: Problem } }
+  | { type: "NEXT_PROBLEM_SUCCESS"; payload: { problem: Problem; isCorrect?: boolean } }
   | { type: "SET_ANSWER"; payload: string }
   | { type: "SET_ERROR"; payload: string }
   | { type: "RESET_CORRECT" }
@@ -90,9 +90,9 @@ function reducer(state: State, action: Action): State {
         status: "idle",
         problem: action.payload.problem,
         answer: "",
-        isCorrect: null,
+        isCorrect: action.payload.isCorrect ?? null,
         error: null,
-        lastCorrectTime: null
+        lastCorrectTime: action.payload.isCorrect ? Date.now() : null
       }
     case "SET_ANSWER":
       return { ...state, answer: action.payload }
@@ -185,36 +185,35 @@ export default function App() {
     console.log("开始提交答案:", { problemId: currentProblem.id, answer: currentAnswer })
     
     try {
-      dispatch({ type: "SUBMIT_START" })
-      const result = await api.submitAnswer(currentProblem.id, parseFloat(currentAnswer))
+      // Start both API calls in parallel
+      const [submitResult, nextProblem] = await Promise.all([
+        api.submitAnswer(currentProblem.id, parseFloat(currentAnswer)),
+        api.getNextProblem()
+      ])
       
-      console.log("收到提交结果:", result)
+      console.log("收到提交结果:", submitResult)
       
-      if (result.is_correct) {
-        console.log("答案正确，开始转换到下一题")
-        dispatch({ type: "SUBMIT_SUCCESS", payload: { isCorrect: true } })
+      if (submitResult.is_correct) {
+        console.log("答案正确，立即切换到下一题")
         
-        // Wait for state update to complete
-        await new Promise(resolve => requestAnimationFrame(resolve))
+        // Dispatch state updates in a single batch
+        dispatch({ 
+          type: "NEXT_PROBLEM_SUCCESS", 
+          payload: { 
+            problem: nextProblem,
+            isCorrect: true 
+          } 
+        })
         
-        // Start transition and fetch next problem in parallel
-        dispatch({ type: "TRANSITION_TO_NEXT" })
-        const nextProblem = await api.getNextProblem()
-        
-        if (nextProblem) {
-          // Ensure DOM updates are complete before state changes
-          await new Promise(resolve => requestAnimationFrame(() => {
-            requestAnimationFrame(() => {
-              dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem: nextProblem } })
-              requestAnimationFrame(() => {
-                dispatch({ type: "TRANSITION_COMPLETE" })
-                resolve(null)
-              })
-            })
-          }))
-        } else {
-          dispatch({ type: "SET_ERROR", payload: "获取下一题失败，请刷新页面重试" })
-        }
+        // Focus input after state update is complete
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            if (answerInputRef.current) {
+              answerInputRef.current.focus()
+              answerInputRef.current.scrollIntoView({ behavior: "smooth", block: "center" })
+            }
+          })
+        })
       } else {
         console.log("答案错误")
         dispatch({ type: "SUBMIT_SUCCESS", payload: { isCorrect: false } })
