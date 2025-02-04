@@ -47,7 +47,8 @@ function App() {
 
   useEffect(() => {
     if (problem && !isLoading && isCorrect === null) {
-      queueMicrotask(() => {
+      // Use Promise.resolve().then for more reliable focus management
+      Promise.resolve().then(() => {
         if (answerInputRef.current) {
           answerInputRef.current.value = ""
           answerInputRef.current.focus()
@@ -63,40 +64,78 @@ function App() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!problem || isLoading || !answerInputRef.current) return
+    if (!problem || isLoading || !answerInputRef.current) {
+      console.log("提交被阻止：", { problem: !!problem, isLoading, hasRef: !!answerInputRef.current })
+      return
+    }
 
     const answer = answerInputRef.current.value.trim()
-    if (!answer) return
+    if (!answer) {
+      console.log("答案为空，不提交")
+      return
+    }
 
     try {
       setIsLoading(true)
       console.log("开始提交答案...")
       
+      // Pre-fetch next problem before submitting current answer
+      console.log("预加载下一题...")
+      const nextProblemPromise = api.getNextProblem()
+      
+      // Submit current answer
+      console.log("提交当前答案...")
       const result = await api.submitAnswer(problem.id, answer)
+      console.log("收到提交结果:", result)
       
       if (result.is_correct) {
         console.log("答案正确，准备切换到下一题")
         
-        // Clear input and mark as correct
-        answerInputRef.current.value = ""
-        setIsCorrect(true)
+        // Clear input and set correct state immediately
+        if (answerInputRef.current) {
+          answerInputRef.current.value = ""
+          console.log("已清空输入框")
+        }
         
         try {
-          // Get next problem
-          const nextProblem = await api.getNextProblem()
-          console.log("下一题已加载完成")
+          // Get the pre-fetched next problem
+          console.log("等待下一题加载完成...")
+          const nextProblem = await nextProblemPromise
+          console.log("下一题已准备就绪:", nextProblem)
           
-          // Update problem state
-          setProblem(nextProblem)
+          // Use microtask to ensure state updates happen before RAF
+          await Promise.resolve()
           
-          // Focus input in next frame after state updates
-          // Update state and focus with a longer delay
-          console.log("开始处理下一题...")
-          setAnswer("") // Clear answer state immediately
-          setIsCorrect(null) // Reset correct state immediately
+          // First RAF: Update problem state
+          requestAnimationFrame(() => {
+            console.log("第一帧：更新题目状态")
+            setProblem(nextProblem)
+            setIsCorrect(true)
+            
+            // Second RAF: Reset correct state
+            requestAnimationFrame(() => {
+              console.log("第二帧：重置正确状态")
+              setIsCorrect(null)
+              
+              // Third RAF: Focus management
+              requestAnimationFrame(() => {
+                console.log("第三帧：设置输入框焦点")
+                if (answerInputRef.current) {
+                  answerInputRef.current.focus()
+                  answerInputRef.current.scrollIntoView({
+                    behavior: "instant",
+                    block: "center"
+                  })
+                  console.log("新题目输入框已获得焦点")
+                } else {
+                  console.warn("输入框引用丢失")
+                }
+              })
+            })
+          })
         } catch (error) {
           console.error("加载下一题失败:", error)
-          setIsCorrect(null)
+          setIsCorrect(false)
         }
       } else {
         setIsCorrect(false)
@@ -104,6 +143,7 @@ function App() {
       }
     } catch (error) {
       console.error("提交答案失败:", error)
+      setIsCorrect(false)
     } finally {
       setIsLoading(false)
     }
