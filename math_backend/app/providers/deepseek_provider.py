@@ -10,24 +10,39 @@ logger = logging.getLogger(__name__)
 
 class DeepSeekProvider(BaseProvider):
     def __init__(self):
-        self.api_token = os.getenv("SF_DEEPSEEK_API_TOKEN")
+        self.api_token = os.getenv("SF_DEEPSEEK_API_TOKEN_NEW")
         if not self.api_token:
             logger.error("Missing API token")
             raise ValueError("智能助教暂时无法使用，请稍后再试")
         self.api_url = "https://api.siliconflow.cn/v1/chat/completions"
-        self.model = "deepseek-ai/DeepSeek-V3"
+        self.model = "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
         self.model_configs = {
             "quick_hint": {
-                "model": "deepseek-ai/DeepSeek-V3",
-                "max_tokens": 256,
+                "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+                "max_tokens": 128,
                 "temperature": 0.7,
-                "timeout": 30
+                "timeout": 10,
+                "top_p": 0.9,
+                "frequency_penalty": 0.3,
+                "retry_count": 2
             },
             "deep_analysis": {
-                "model": "deepseek-ai/DeepSeek-R1",
-                "max_tokens": 512,
+                "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+                "max_tokens": 256,
                 "temperature": 0.5,
-                "timeout": 60
+                "timeout": 15,
+                "top_p": 0.7,
+                "frequency_penalty": 0.5,
+                "retry_count": 1
+            },
+            "parent_guidance": {
+                "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
+                "max_tokens": 512,
+                "temperature": 0.3,
+                "timeout": 20,
+                "top_p": 0.8,
+                "frequency_penalty": 0.4,
+                "retry_count": 1
             }
         }
         logger.info("AI service initialized")

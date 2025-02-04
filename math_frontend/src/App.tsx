@@ -192,16 +192,39 @@ export default function App() {
       
       if (result.is_correct) {
         console.log("答案正确，开始转换到下一题")
-        dispatch({ type: "SUBMIT_SUCCESS", payload: { isCorrect: true } })
-        dispatch({ type: "TRANSITION_TO_NEXT" })
         
-        const nextProblem = await api.getNextProblem()
-        if (nextProblem) {
-          dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem: nextProblem } })
-          dispatch({ type: "TRANSITION_COMPLETE" })
-        } else {
-          dispatch({ type: "SET_ERROR", payload: "获取下一题失败，请刷新页面重试" })
-        }
+        await Promise.resolve().then(() => {
+          dispatch({ type: "SUBMIT_SUCCESS", payload: { isCorrect: true } })
+          dispatch({ type: "TRANSITION_TO_NEXT" })
+        })
+
+        requestAnimationFrame(() => {
+          requestAnimationFrame(() => {
+            requestAnimationFrame(async () => {
+              try {
+                console.log("开始获取下一题")
+                const nextProblem = await api.getNextProblem()
+                if (nextProblem) {
+                  dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem: nextProblem } })
+                  dispatch({ type: "TRANSITION_COMPLETE" })
+                  
+                  console.log("重置输入框并设置焦点")
+                  const input = document.querySelector('input[type="text"]') as HTMLInputElement
+                  if (input) {
+                    input.value = ''
+                    input.focus()
+                  }
+                } else {
+                  dispatch({ type: "SET_ERROR", payload: "获取下一题失败，请刷新页面重试" })
+                }
+              } catch (error: any) {
+                console.error("获取下一题失败:", error)
+                dispatch({ type: "SET_ERROR", payload: error.message || "获取下一题失败，请刷新页面重试" })
+              }
+            })
+          })
+        })
+        return
       } else {
         console.log("答案错误")
         dispatch({ type: "SUBMIT_SUCCESS", payload: { isCorrect: false } })
@@ -209,6 +232,10 @@ export default function App() {
     } catch (error: any) {
       console.error("提交答案失败:", error)
       dispatch({ type: "SET_ERROR", payload: error.message || "提交答案失败，请稍后再试" })
+    } finally {
+      if (!result?.correct) {
+        setIsSubmitting(false)
+      }
     }
   }
 
