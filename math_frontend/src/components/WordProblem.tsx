@@ -1,7 +1,7 @@
 import { useState } from 'react';
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
 import { BookOpen } from "lucide-react";
 import { Language, WordProblem as WordProblemType } from '../types';
 
@@ -11,7 +11,7 @@ interface WordProblemProps {
   onScoreUpdate: () => void;
 }
 
-export function WordProblem({ language, onScoreUpdate }: WordProblemProps) {
+export function WordProblem({ language, userId, onScoreUpdate }: WordProblemProps) {
   const [problem, setProblem] = useState<WordProblemType | null>(null);
   const [answer, setAnswer] = useState('');
   const [showExplanation, setShowExplanation] = useState(false);
@@ -35,12 +35,26 @@ export function WordProblem({ language, onScoreUpdate }: WordProblemProps) {
     }
   };
 
-  const checkAnswer = () => {
+  const checkAnswer = async () => {
     if (!problem) return;
-    const isCorrect = Math.abs(Number(answer) - problem.answer) < 0.01;
-    setShowExplanation(true);
-    if (isCorrect) {
-      onScoreUpdate();
+    try {
+      const response = await fetch(`${import.meta.env.VITE_API_URL}/problems/check`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          problemId: problem.id,
+          userId,
+          answer: Number(answer)
+        })
+      });
+      if (!response.ok) throw new Error('Failed to check answer');
+      const result = await response.json();
+      setShowExplanation(true);
+      if (result.correct) {
+        onScoreUpdate();
+      }
+    } catch (error) {
+      console.error('Failed to check answer:', error);
     }
   };
 
