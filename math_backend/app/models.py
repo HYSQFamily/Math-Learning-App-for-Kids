@@ -17,14 +17,18 @@ class User(Base):
 class Problem(Base):
     __tablename__ = "problems"
     id = Column(String, primary_key=True)
-    type = Column(String)
-    question = Column(String)
+    type = Column(String)  # 'arithmetic' or 'word'
+    question_en = Column(String)
+    question_zh = Column(String)
     correct_answer = Column(Float)
     difficulty = Column(Integer)
-    hints = Column(String)
-    explanation = Column(String)
+    hints_en = Column(String)
+    hints_zh = Column(String)
+    explanation_en = Column(String)
+    explanation_zh = Column(String)
     knowledge_point = Column(String)
     related_points = Column(String)
+    created_at = Column(DateTime, default=datetime.utcnow)
 
 class Attempt(Base):
     __tablename__ = "attempts"
