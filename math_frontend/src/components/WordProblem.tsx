@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { Button } from "./ui/button";
-import { Input } from "./ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import React, { useState } from 'react';
+import { Button } from "../components/ui/button";
+import { Input } from "../components/ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
 import { BookOpen } from "lucide-react";
-import { Language, WordProblem as WordProblemType } from '../types';
+import { Language, WordProblem as WordProblemType } from '../../types';
 
 interface WordProblemProps {
   language: Language;
