@@ -12,11 +12,14 @@ export interface User {
 export interface Problem {
   id: string;
   type: string;
-  question: string;
+  question_en: string;
+  question_zh: string;
   correct_answer: number;
   difficulty: number;
-  hints: string[];
-  explanation: string;
+  hints_en: string[];
+  hints_zh: string[];
+  explanation_en: string;
+  explanation_zh: string;
   knowledge_point: string;
   related_points: string[];
 }
@@ -84,6 +87,42 @@ export const api = {
 
   getProgress: async (userId: string): Promise<Progress> => {
     const response = await fetch(`${API_URL}/progress/${userId}`);
+    return response.json();
+  },
+
+  getArithmeticProblem: async (operation: string, language: string = 'en') => {
+    const response = await fetch(`${API_URL}/problems/arithmetic?operation=${operation}&language=${language}`, {
+      method: 'POST'
+    });
+    return response.json();
+  },
+
+  checkArithmeticAnswer: async (problemId: string, userId: string, answer: number) => {
+    const response = await fetch(`${API_URL}/problems/arithmetic/${problemId}/check`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ user_id: userId, answer }),
+    });
+    return response.json();
+  },
+
+  getWordProblem: async (language: string = 'en'): Promise<Problem> => {
+    const response = await fetch(`${API_URL}/problems/word?language=${language}`, {
+      method: 'POST'
+    });
+    return response.json();
+  },
+
+  checkWordProblemAnswer: async (problemId: string, userId: string, answer: number): Promise<{ correct: boolean }> => {
+    const response = await fetch(`${API_URL}/problems/word/${problemId}/check`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({ user_id: userId, answer }),
+    });
     return response.json();
   }
 };

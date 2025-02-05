@@ -1,11 +1,11 @@
-import React from 'react'
+
 import {
   Select,
   SelectContent,
   SelectItem,
   SelectTrigger,
   SelectValue,
-} from "@/components/ui/select"
+} from "../components/ui/select"
 import { Bot } from "lucide-react"
 
 interface ServicePickerProps {

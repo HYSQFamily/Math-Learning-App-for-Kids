@@ -6,7 +6,7 @@ interface AchievementsDisplayProps {
   achievements: Achievement[]
 }
 
-export function AchievementsDisplay({ points, achievements }: AchievementsDisplayProps) {
+export function AchievementsDisplay({ achievements }: AchievementsDisplayProps) {
   return (
     <div className="bg-gradient-to-r from-yellow-50 to-orange-50 rounded-lg p-4 space-y-3">
       <div className="flex items-center gap-2">

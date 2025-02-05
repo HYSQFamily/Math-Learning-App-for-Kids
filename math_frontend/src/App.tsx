@@ -1,4 +1,4 @@
-import React, { useState, useRef, useEffect } from "react"
+import { useState, useRef, useEffect } from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "./components/ui/card"
 import { Button } from "./components/ui/button"
 import { Input } from "./components/ui/input"
@@ -7,10 +7,13 @@ import { TutorIntroduction } from "./components/TutorIntroduction"
 import { api, User, Problem, Progress } from "./lib/api"
 import { TutorChat } from "./components/TutorChat"
 import { AchievementsDisplay } from "./components/AchievementsDisplay"
+import { ArithmeticPractice } from "./components/ArithmeticPractice"
+import { WordProblem } from "./components/WordProblem"
 
 function App() {
   const [user, setUser] = useState<User | null>(null)
   const [username, setUsername] = useState("")
+  const [language, setLanguage] = useState<'en' | 'zh'>('zh')
   const [currentProblem, setCurrentProblem] = useState<Problem | null>(null)
   const [answer, setAnswer] = useState("")
   const [progress, setProgress] = useState<Progress | null>(null)
@@ -100,7 +103,8 @@ function App() {
 
   const showNextHint = () => {
     if (!currentProblem) return
-    if (hintIndex < currentProblem.hints.length - 1) {
+    const hints = language === 'en' ? currentProblem.hints_en : currentProblem.hints_zh;
+    if (hintIndex < hints.length - 1) {
       setHintIndex(h => h + 1)
     }
   }
@@ -181,7 +185,23 @@ function App() {
           />
         )}
         
-        {user && <TutorChat userId={user.id} />}
+        {user && (
+          <>
+            <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+              <ArithmeticPractice 
+                language={language}
+                userId={user.id} 
+                onScoreUpdate={() => loadProgress(user.id)}
+              />
+              <WordProblem
+                language={language}
+                userId={user.id}
+                onScoreUpdate={() => loadProgress(user.id)}
+              />
+            </div>
+            <TutorChat userId={user.id} />
+          </>
+        )}
 
         {currentProblem && (
           <Card>
@@ -189,7 +209,7 @@ function App() {
               <CardTitle>题目</CardTitle>
             </CardHeader>
             <CardContent className="space-y-4">
-              <p className="text-lg">{currentProblem.question}</p>
+              <p className="text-lg">{language === 'en' ? currentProblem.question_en : currentProblem.question_zh}</p>
               <div className="flex flex-wrap items-start gap-2 mt-2 bg-blue-50 p-3 rounded-lg">
                 <div className="flex items-center gap-2">
                   <Brain className="w-4 h-4 text-blue-500" />
@@ -225,7 +245,7 @@ function App() {
                     跳过
                   </Button>
                   <Button 
-                    variant="secondary"
+                    variant="outline"
                     onClick={() => {
                       if (currentProblem) {
                         setShowHint(true)
@@ -246,8 +266,8 @@ function App() {
               {(showHint || attempt?.need_extra_help) && (
                 <div className="bg-blue-50 p-4 rounded-lg space-y-2">
                   <p className="font-medium text-blue-900">提示:</p>
-                  <p className="text-blue-800">{currentProblem.hints[hintIndex]}</p>
-                  {hintIndex < currentProblem.hints.length - 1 && (
+                  <p className="text-blue-800">{language === 'en' ? currentProblem.hints_en[hintIndex] : currentProblem.hints_zh[hintIndex]}</p>
+                  {hintIndex < (language === 'en' ? currentProblem.hints_en.length : currentProblem.hints_zh.length) - 1 && (
                     <Button variant="link" onClick={showNextHint}>
                       显示下一个提示
                     </Button>

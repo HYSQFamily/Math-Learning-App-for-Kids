@@ -1,37 +1,31 @@
 import { useState } from 'react';
-import { Button } from "../components/ui/button";
-import { Input } from "../components/ui/input";
-import { Card, CardContent, CardHeader, CardTitle } from "../components/ui/card";
-import { Calculator } from "lucide-react";
-import { api } from '../lib/api';
+import { Button } from "./ui/button";
+import { Input } from "./ui/input";
+import { Card, CardContent, CardHeader, CardTitle } from "./ui/card";
+import { Brain } from "lucide-react";
+import { api, Problem } from '../lib/api';
 
-interface ArithmeticPracticeProps {
+interface WordProblemProps {
   language: 'en' | 'zh';
   userId: string;
   onScoreUpdate: () => void;
 }
 
-export function ArithmeticPractice({ language, userId, onScoreUpdate }: ArithmeticPracticeProps) {
-  const [operation, setOperation] = useState<string>('addition');
-  const [problem, setProblem] = useState<any>(null);
+export function WordProblem({ language, userId, onScoreUpdate }: WordProblemProps) {
+  const [problem, setProblem] = useState<Problem | null>(null);
   const [answer, setAnswer] = useState('');
   const [feedback, setFeedback] = useState<{correct: boolean; message: string} | null>(null);
   const [loading, setLoading] = useState(false);
-
-  const operations = {
-    addition: { en: 'Addition', zh: '加法' },
-    subtraction: { en: '减法', zh: 'Subtraction' },
-    multiplication: { en: 'Multiplication', zh: '乘法' },
-    division: { en: 'Division', zh: '除法' }
-  };
+  const [showExplanation, setShowExplanation] = useState(false);
 
   const loadProblem = async () => {
     setLoading(true);
     try {
-      const response = await api.getArithmeticProblem(operation, language);
+      const response = await api.getWordProblem(language);
       setProblem(response);
       setAnswer('');
       setFeedback(null);
+      setShowExplanation(false);
     } catch (error) {
       console.error('Failed to load problem:', error);
     } finally {
@@ -43,7 +37,7 @@ export function ArithmeticPractice({ language, userId, onScoreUpdate }: Arithmet
     if (!problem) return;
     
     try {
-      const response = await api.checkArithmeticAnswer(problem.id, userId, Number(answer));
+      const response = await api.checkWordProblemAnswer(problem.id, userId, Number(answer));
       
       if (response.correct) {
         setFeedback({
@@ -66,29 +60,12 @@ export function ArithmeticPractice({ language, userId, onScoreUpdate }: Arithmet
     <Card className="w-full max-w-md mx-auto">
       <CardHeader>
         <CardTitle className="flex items-center gap-2">
-          <Calculator className="h-5 w-5" />
-          {language === 'en' ? 'Arithmetic Practice' : '算术练习'}
+          <Brain className="h-5 w-5" />
+          {language === 'en' ? 'Word Problems' : '应用题'}
         </CardTitle>
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
-          <div className="grid grid-cols-2 gap-2">
-            {Object.entries(operations).map(([key, labels]) => (
-              <Button
-                key={key}
-                variant={operation === key ? "default" : "outline"}
-                onClick={() => {
-                  setOperation(key);
-                  setProblem(null);
-                  setAnswer('');
-                  setFeedback(null);
-                }}
-              >
-                {labels[language]}
-              </Button>
-            ))}
-          </div>
-
           {!problem ? (
             <Button 
               onClick={loadProblem}
@@ -101,7 +78,7 @@ export function ArithmeticPractice({ language, userId, onScoreUpdate }: Arithmet
             </Button>
           ) : (
             <div className="space-y-4">
-              <div className="text-lg font-medium text-center">
+              <div className="text-lg font-medium">
                 {language === 'en' ? problem.question_en : problem.question_zh}
               </div>
               <div className="flex gap-2">
@@ -117,10 +94,29 @@ export function ArithmeticPractice({ language, userId, onScoreUpdate }: Arithmet
                 </Button>
               </div>
               {feedback && (
-                <div className={`p-4 rounded-lg text-center ${
+                <div className={`p-4 rounded-lg ${
                   feedback.correct ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'
                 }`}>
-                  {feedback.message}
+                  <p className="text-center mb-2">{feedback.message}</p>
+                  {!feedback.correct && (
+                    <Button
+                      variant="outline"
+                      onClick={() => setShowExplanation(true)}
+                      className="w-full mt-2"
+                    >
+                      {language === 'en' ? 'Show Explanation' : '查看解释'}
+                    </Button>
+                  )}
+                </div>
+              )}
+              {showExplanation && (
+                <div className="bg-blue-50 p-4 rounded-lg">
+                  <p className="font-medium text-blue-900 mb-2">
+                    {language === 'en' ? 'Explanation:' : '解释：'}
+                  </p>
+                  <p className="text-blue-800">
+                    {language === 'en' ? problem.explanation_en : problem.explanation_zh}
+                  </p>
                 </div>
               )}
               <Button 
