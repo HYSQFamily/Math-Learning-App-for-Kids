@@ -29,6 +29,8 @@ interface State {
   isCorrect: boolean | null
   error: string | null
   nextProblem: Problem | null
+  difficulty?: number
+  created_at?: string
 }
 
 type Action =
@@ -112,7 +114,9 @@ const initialState: State = {
   isCorrect: null,
   error: null,
   lastCorrectTime: null,
-  nextProblem: null
+  nextProblem: null,
+  difficulty: undefined,
+  created_at: undefined
 }
 
 export default function App() {
@@ -125,43 +129,55 @@ export default function App() {
 
   // Handle transitions and fetch next problem
   useEffect(() => {
-    if (state.status === "transitioning") {
-      console.log("状态转换中，开始获取下一题")
-      fetchNextProblem().then(() => {
-        dispatch({ type: "TRANSITION_COMPLETE" })
-      }).catch(error => {
-        console.error("获取下一题失败:", error)
-        dispatch({ type: "SET_ERROR", payload: error.message || "获取下一题失败，请刷新页面重试" })
-      })
+    const handleTransition = async () => {
+      if (state.status === "transitioning") {
+        console.log("状态转换中，开始获取下一题")
+        try {
+          const nextProblem = await api.getNextProblem()
+          if (nextProblem) {
+            dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem: nextProblem } })
+            dispatch({ type: "TRANSITION_COMPLETE" })
+          } else {
+            dispatch({ type: "SET_ERROR", payload: "获取下一题失败，请刷新页面重试" })
+          }
+        } catch (error: any) {
+          console.error("获取下一题失败:", error)
+          dispatch({ type: "SET_ERROR", payload: error.message || "获取下一题失败，请刷新页面重试" })
+        }
+      }
     }
+    handleTransition()
   }, [state.status])
 
   // Unified focus management
   useEffect(() => {
-    // Only focus when we have a problem and are in idle state
-    if (state.status === "idle" && state.problem && state.isCorrect === null) {
-      console.log("准备聚焦到输入框")
-      
-      // Use RAF chain to ensure DOM is fully updated and animations complete
-      const focusInput = () => {
-        if (answerInputRef.current) {
-          answerInputRef.current.focus()
-          answerInputRef.current.scrollIntoView({ 
-            behavior: "smooth", 
-            block: "center" 
-          })
-          console.log("输入框已获得焦点")
-        }
-      }
-
-      // Triple RAF to ensure all state updates and animations are complete
-      requestAnimationFrame(() => {
+    const focusInput = () => {
+      if (answerInputRef.current) {
+        // Clear the input value directly
+        answerInputRef.current.value = ''
+        // Use requestAnimationFrame for smoother focus handling
         requestAnimationFrame(() => {
-          requestAnimationFrame(focusInput)
+          if (answerInputRef.current) {
+            answerInputRef.current.focus()
+            answerInputRef.current.scrollIntoView({ 
+              behavior: "smooth", 
+              block: "center" 
+            })
+            console.log("输入框已获得焦点")
+          }
         })
-      })
+      }
     }
-  }, [state.status, state.problem?.id, state.isCorrect])
+
+    // Focus input when:
+    // 1. Initial problem load
+    // 2. After transition completes
+    // 3. When returning to idle state with a new problem
+    if (state.status === "idle" && state.problem) {
+      console.log("准备聚焦到输入框，当前状态:", state.status)
+      focusInput()
+    }
+  }, [state.status, state.problem?.id])
 
   const fetchNextProblem = async () => {
     try {
@@ -186,45 +202,20 @@ export default function App() {
     
     try {
       dispatch({ type: "SUBMIT_START" })
-      const result = await api.submitAnswer(currentProblem.id, parseFloat(currentAnswer))
+      const result = await api.submitAnswer(currentProblem.id, Number(currentAnswer))
       
       console.log("收到提交结果:", result)
       
       if (result.is_correct) {
         console.log("答案正确，开始转换到下一题")
+        // First mark as correct and clear the input
+        dispatch({ type: "SUBMIT_SUCCESS", payload: { isCorrect: true } })
         
-        await Promise.resolve().then(() => {
-          dispatch({ type: "SUBMIT_SUCCESS", payload: { isCorrect: true } })
+        // Use requestAnimationFrame to ensure state updates are processed
+        requestAnimationFrame(() => {
+          // Then transition to next problem
           dispatch({ type: "TRANSITION_TO_NEXT" })
         })
-
-        requestAnimationFrame(() => {
-          requestAnimationFrame(() => {
-            requestAnimationFrame(async () => {
-              try {
-                console.log("开始获取下一题")
-                const nextProblem = await api.getNextProblem()
-                if (nextProblem) {
-                  dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem: nextProblem } })
-                  dispatch({ type: "TRANSITION_COMPLETE" })
-                  
-                  console.log("重置输入框并设置焦点")
-                  const input = document.querySelector('input[type="text"]') as HTMLInputElement
-                  if (input) {
-                    input.value = ''
-                    input.focus()
-                  }
-                } else {
-                  dispatch({ type: "SET_ERROR", payload: "获取下一题失败，请刷新页面重试" })
-                }
-              } catch (error: any) {
-                console.error("获取下一题失败:", error)
-                dispatch({ type: "SET_ERROR", payload: error.message || "获取下一题失败，请刷新页面重试" })
-              }
-            })
-          })
-        })
-        return
       } else {
         console.log("答案错误")
         dispatch({ type: "SUBMIT_SUCCESS", payload: { isCorrect: false } })
@@ -232,10 +223,6 @@ export default function App() {
     } catch (error: any) {
       console.error("提交答案失败:", error)
       dispatch({ type: "SET_ERROR", payload: error.message || "提交答案失败，请稍后再试" })
-    } finally {
-      if (!result?.correct) {
-        setIsSubmitting(false)
-      }
     }
   }
 
