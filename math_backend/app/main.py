@@ -50,9 +50,12 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Temporarily allow all origins for testing
+    allow_origins=[
+        "https://math-learning-app-frontend-devin-2024.fly.dev",
+        "http://localhost:5173"  # For local development
+    ],
     allow_credentials=True,
-    allow_methods=["*"],
+    allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*", "x-client-id"],
     expose_headers=["*"],
 )
