@@ -6,7 +6,7 @@ import os
 # Load environment variables from .env file
 load_dotenv()
 
-from .providers.provider_factory import get_provider
+from .providers.provider_factory import ProviderFactory
 from fastapi import APIRouter, Header
 from typing import Optional
 import random
@@ -16,7 +16,7 @@ problems_router = APIRouter()
 
 @tutor_router.post("/ask")
 async def ask_tutor(question: str, service: str = "deepseek"):
-    provider = get_provider(service)
+    provider = ProviderFactory.get_provider(service)
     response = await provider.generate_response(question)
     return {"answer": response}
 
