@@ -13,10 +13,11 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://math-learning-app-frontend-devin-2024.fly.dev"],
+    allow_origins=["*"],  # Temporarily allow all origins for testing
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*", "x-client-id"],
+    expose_headers=["*"],
 )
 
 app.include_router(problems_router, prefix="/problems", tags=["problems"])
