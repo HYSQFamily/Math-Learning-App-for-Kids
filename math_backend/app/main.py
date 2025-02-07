@@ -6,8 +6,45 @@ import os
 # Load environment variables from .env file
 load_dotenv()
 
-from .aitutor import router as tutor_router
-from .problems import router as problems_router
+from .providers.provider_factory import get_provider
+from fastapi import APIRouter, Header
+from typing import Optional
+import random
+
+tutor_router = APIRouter()
+problems_router = APIRouter()
+
+@tutor_router.post("/ask")
+async def ask_tutor(question: str, service: str = "deepseek"):
+    provider = get_provider(service)
+    response = await provider.generate_response(question)
+    return {"answer": response}
+
+@problems_router.get("/next")
+async def get_next_problem(x_client_id: Optional[str] = Header(None)):
+    # Simple arithmetic problem generation for testing
+    operations = ['+', '-', '*', '/']
+    operation = random.choice(operations)
+    num1 = random.randint(1, 20)
+    num2 = random.randint(1, 10)
+    
+    if operation == '/':
+        num1 = num2 * random.randint(1, 10)  # Ensure division results in whole number
+        
+    problem = {
+        "id": f"prob_{random.randint(1000, 9999)}",
+        "type": "arithmetic",
+        "operation": operation,
+        "num1": num1,
+        "num2": num2,
+        "question_en": f"What is {num1} {operation} {num2}?",
+        "question_zh": f"{num1} {operation} {num2} 等于多少?",
+        "hints_en": ["Try breaking down the problem"],
+        "hints_zh": ["试着把问题分解一下"],
+        "knowledge_point": "basic_arithmetic",
+        "difficulty": 1
+    }
+    return problem
 
 app = FastAPI()
 
