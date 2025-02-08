@@ -31,18 +31,28 @@ async def get_next_problem(x_client_id: Optional[str] = Header(None)):
     if operation == '/':
         num1 = num2 * random.randint(1, 10)  # Ensure division results in whole number
         
+    operation_text = {
+        '+': '加',
+        '-': '减',
+        '*': '乘',
+        '/': '除以'
+    }
+    
     problem = {
         "id": f"prob_{random.randint(1000, 9999)}",
         "type": "arithmetic",
         "operation": operation,
         "num1": num1,
         "num2": num2,
+        "question": f"{num1} {operation} {num2} = ?",
         "question_en": f"What is {num1} {operation} {num2}?",
-        "question_zh": f"{num1} {operation} {num2} 等于多少?",
-        "hints_en": ["Try breaking down the problem"],
-        "hints_zh": ["试着把问题分解一下"],
+        "question_zh": f"{num1} {operation_text[operation]} {num2} 等于多少?",
+        "hints_en": ["Try breaking down the problem", "Think about the basic arithmetic rules"],
+        "hints_zh": ["试着把问题分解一下", "想一想基本的运算法则"],
         "knowledge_point": "basic_arithmetic",
-        "difficulty": 1
+        "difficulty": 1,
+        "explanation_en": f"Let's solve {num1} {operation} {num2} step by step",
+        "explanation_zh": f"让我们一步一步解决 {num1} {operation_text[operation]} {num2}"
     }
     return problem
 
@@ -50,10 +60,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "https://math-learning-app-frontend-devin-2024.fly.dev",
-        "http://localhost:5173"  # For local development
-    ],
+    allow_origins=["*"],  # Allow all origins for testing
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*", "x-client-id"],
