@@ -10,6 +10,7 @@ from .providers.provider_factory import ProviderFactory
 from fastapi import APIRouter, Header
 from typing import Optional
 from pydantic import BaseModel
+from .providers.base_provider import TutorRequest
 import random
 
 tutor_router = APIRouter()
@@ -19,10 +20,14 @@ class AnswerSubmission(BaseModel):
     problem_id: str
     answer: float
 
+class TutorRequest(BaseModel):
+    question: str
+    hint_type: str = "quick_hint"
+
 @tutor_router.post("/ask")
-async def ask_tutor(question: str, service: str = "deepseek"):
+async def ask_tutor(request: TutorRequest, service: str = "deepseek"):
     provider = ProviderFactory.get_provider(service)
-    response = await provider.generate_response(question)
+    response = await provider.ask(request)
     return {"answer": response}
 
 @problems_router.get("/next")
@@ -77,7 +82,10 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["https://math-learning-app-frontend-devin.fly.dev"],
+    allow_origins=[
+        "https://math-learning-app-frontend-devin.fly.dev",
+        "https://beijing-math-app-hja7i3cf.devinapps.com"
+    ],
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*", "x-client-id"],
