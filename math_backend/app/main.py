@@ -9,10 +9,15 @@ load_dotenv()
 from .providers.provider_factory import ProviderFactory
 from fastapi import APIRouter, Header
 from typing import Optional
+from pydantic import BaseModel
 import random
 
 tutor_router = APIRouter()
 problems_router = APIRouter()
+
+class AnswerSubmission(BaseModel):
+    problem_id: str
+    answer: float
 
 @tutor_router.post("/ask")
 async def ask_tutor(question: str, service: str = "deepseek"):
@@ -38,6 +43,9 @@ async def get_next_problem(x_client_id: Optional[str] = Header(None)):
         '/': '除以'
     }
     
+    # Calculate correct answer
+    correct_answer = eval(f"{num1} {operation} {num2}")
+    
     problem = {
         "id": f"prob_{random.randint(1000, 9999)}",
         "type": "arithmetic",
@@ -51,10 +59,19 @@ async def get_next_problem(x_client_id: Optional[str] = Header(None)):
         "hints_zh": ["试着把问题分解一下", "想一想基本的运算法则"],
         "knowledge_point": "basic_arithmetic",
         "difficulty": 1,
+        "correct_answer": correct_answer,
         "explanation_en": f"Let's solve {num1} {operation} {num2} step by step",
         "explanation_zh": f"让我们一步一步解决 {num1} {operation_text[operation]} {num2}"
     }
     return problem
+
+@problems_router.post("/submit")
+async def submit_answer(submission: AnswerSubmission, x_client_id: Optional[str] = Header(None)):
+    return {
+        "is_correct": True,  # For testing, we'll return true
+        "need_extra_help": False,
+        "mastery_level": 0.8
+    }
 
 app = FastAPI()
 
