@@ -60,7 +60,7 @@ app = FastAPI()
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins for testing
+    allow_origins=["https://math-learning-app-frontend-devin.fly.dev"],
     allow_credentials=True,
     allow_methods=["GET", "POST", "OPTIONS"],
     allow_headers=["*", "x-client-id"],
