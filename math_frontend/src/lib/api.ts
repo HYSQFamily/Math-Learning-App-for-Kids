@@ -1,240 +1,286 @@
-import type { Problem as ProblemType, SubmitAnswerResponse, TutorResponse as TutorResponseType } from "../types";
-import { fallbackProblems, fallbackUser, fallbackProgress, fallbackAttemptResult, fallbackTutorResponse } from "./fallbackData";
+import { Problem, SubmitAnswerResponse, TutorResponse, User, Progress } from '../types'
 
-export interface User {
-  id: string;
-  username: string;
-  grade_level: number;
-  points: number;
-  streak_days: number;
+// API base URL - use the deployed backend
+const API_BASE_URL = 'https://math-learning-app-backend.fly.dev'
+
+// Fallback data for when API calls fail
+const FALLBACK_PROBLEM: Problem = {
+  id: 'fallback-1',
+  question: '5 + 7 = ?',
+  answer: 12,
+  knowledge_point: 'addition',
+  related_points: [],
+  difficulty: 1,
+  created_at: new Date().toISOString(),
+  hints: ['Try counting on your fingers', 'Start with 5 and count 7 more']
 }
 
-export interface Problem extends ProblemType {
-  hints: string[];
-  type?: string;
-}
-
-export interface AttemptResult extends SubmitAnswerResponse {
-  need_extra_help?: boolean;
-  mastery_level?: number;
-  explanation?: string;
-}
-
-export interface TutorResponse extends TutorResponseType {}
-
-// Set to true to use fallback data when backend is unavailable
-const USE_FALLBACK = true;
-const API_URL = "https://math-learning-app-backend.fly.dev";
-
+// API client
 export const api = {
-  getUser: async (userId?: string): Promise<User> => {
-    let clientId = localStorage.getItem('client_id');
-    if (!clientId) {
-      clientId = crypto.randomUUID();
-      localStorage.setItem('client_id', clientId);
-    }
-    
+  // User management
+  async createUser(username: string, gradeLevel: number): Promise<User> {
     try {
-      // Use client ID if no user ID provided
-      const effectiveUserId = userId || clientId || 'default-user';
-      
-      const response = await fetch(`${API_URL}/users/${effectiveUserId}`, {
+      const response = await fetch(`${API_BASE_URL}/users`, {
+        method: 'POST',
         headers: {
-          'x-client-id': clientId
-        }
-      });
+          'Content-Type': 'application/json',
+          'x-client-id': localStorage.getItem('client_id') || 'unknown'
+        },
+        body: JSON.stringify({ username, grade_level: gradeLevel })
+      })
       
       if (!response.ok) {
-        throw new Error("获取用户信息失败");
+        throw new Error('Failed to create user')
       }
       
-      return await response.json();
-    } catch (error: any) {
-      console.error("获取用户信息失败:", error);
-      // Return a fallback user object
-      if (USE_FALLBACK) {
-        console.log("Using fallback user data");
-        return {
-          ...fallbackUser,
-          id: clientId || fallbackUser.id
-        };
-      }
-      
-      // Return a default user object
+      return await response.json()
+    } catch (error) {
+      console.error('Error creating user:', error)
+      // Return a fallback user
       return {
-        id: clientId || "default-user",
-        username: "DefaultUser",
+        id: localStorage.getItem('client_id') || 'fallback-user',
+        username: username || 'Guest',
+        grade_level: gradeLevel || 3,
+        points: 0,
+        streak_days: 0
+      }
+    }
+  },
+  
+  async getUser(userId: string): Promise<User> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
+        headers: {
+          'x-client-id': localStorage.getItem('client_id') || 'unknown'
+        }
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to get user')
+      }
+      
+      return await response.json()
+    } catch (error) {
+      console.error('Error getting user:', error)
+      // Return a fallback user
+      return {
+        id: userId,
+        username: 'Guest',
         grade_level: 3,
         points: 0,
         streak_days: 0
-      };
+      }
     }
   },
   
-  getUserProgress: async (userId?: string): Promise<any> => {
-    let clientId = localStorage.getItem('client_id');
-    if (!clientId) {
-      clientId = crypto.randomUUID();
-      localStorage.setItem('client_id', clientId);
-    }
-    
+  async getUserProgress(userId: string): Promise<Progress> {
     try {
-      // Use client ID if no user ID provided
-      const effectiveUserId = userId || clientId || 'default-user';
-      
-      const response = await fetch(`${API_URL}/users/${effectiveUserId}/progress`, {
+      const response = await fetch(`${API_BASE_URL}/users/${userId}/progress`, {
         headers: {
-          'x-client-id': clientId
+          'x-client-id': localStorage.getItem('client_id') || 'unknown'
         }
-      });
+      })
       
       if (!response.ok) {
-        throw new Error("获取学习进度失败");
+        throw new Error('Failed to get user progress')
       }
       
-      return await response.json();
-    } catch (error: any) {
-      console.error("获取学习进度失败:", error);
+      return await response.json()
+    } catch (error) {
+      console.error('Error getting user progress:', error)
       // Return fallback progress
-      if (USE_FALLBACK) {
-        console.log("Using fallback progress data");
-        return fallbackProgress;
-      }
-      
-      // Return default progress
       return {
         points: 0,
         streak_days: 0,
-        mastery_levels: {
-          addition: 0.0,
-          subtraction: 0.0,
-          multiplication: 0.0
-        },
+        mastery_levels: {},
         achievements: []
-      };
+      }
     }
   },
   
-  getNextProblem: async (): Promise<Problem> => {
-    let clientId = localStorage.getItem('client_id');
-    if (!clientId) {
-      clientId = crypto.randomUUID();
-      localStorage.setItem('client_id', clientId);
-    }
-    
+  // Problem management
+  async getNextProblem(): Promise<Problem> {
     try {
-      const response = await fetch(`${API_URL}/problems/next`, {
-        headers: {
-          'x-client-id': clientId
-        }
-      });
-      
-      if (!response.ok) {
-        throw new Error("获取题目失败");
-      }
-      
-      const problem = await response.json();
-      return {
-        ...problem,
-        hints: Array.isArray(problem.hints) ? problem.hints : 
-               (typeof problem.hints === 'string' ? JSON.parse(problem.hints) : [])
-      };
-    } catch (error: any) {
-      console.error("获取题目失败:", error);
-      
-      // Return a fallback problem if backend is unavailable
-      if (USE_FALLBACK) {
-        console.log("Using fallback problem data");
-        // Return a random fallback problem
-        const randomIndex = Math.floor(Math.random() * fallbackProblems.length);
-        return fallbackProblems[randomIndex];
-      }
-      
-      throw new Error("Problem not found");
-    }
-  },
-
-  submitAnswer: async (problemId: string, answer: number): Promise<AttemptResult> => {
-    let clientId = localStorage.getItem('client_id');
-    if (!clientId) {
-      clientId = crypto.randomUUID();
-      localStorage.setItem('client_id', clientId);
-    }
-    
-    try {
-      const response = await fetch(`${API_URL}/problems/submit`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "x-client-id": clientId
-        },
-        body: JSON.stringify({ 
-          user_id: clientId, 
-          problem_id: problemId, 
-          answer 
+      // First try to get a problem from the generator endpoint
+      try {
+        const genResponse = await fetch(`${API_BASE_URL}/generator/generate?grade_level=3&service=replicate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-client-id': localStorage.getItem('client_id') || 'unknown'
+          }
         })
-      });
+        
+        if (genResponse.ok) {
+          const problem = await genResponse.json()
+          
+          // Parse hints if they're a JSON string
+          if (typeof problem.hints === 'string') {
+            try {
+              problem.hints = JSON.parse(problem.hints)
+            } catch (e) {
+              // If parsing fails, keep as string
+              console.warn('Failed to parse hints JSON:', e)
+            }
+          }
+          
+          return problem
+        }
+      } catch (genError) {
+        console.error('Error generating problem:', genError)
+      }
+      
+      // If generator fails, try the problems/next endpoint
+      const response = await fetch(`${API_BASE_URL}/problems/next`, {
+        headers: {
+          'x-client-id': localStorage.getItem('client_id') || 'unknown'
+        }
+      })
       
       if (!response.ok) {
-        throw new Error("提交答案失败");
+        throw new Error('Problem not found')
       }
       
-      return await response.json();
-    } catch (error: any) {
-      console.error("提交答案失败:", error);
+      const problem = await response.json()
       
-      // Return a fallback result if backend is unavailable
-      if (USE_FALLBACK) {
-        console.log("Using fallback attempt result");
-        // Check if the answer is correct for fallback problems
-        const fallbackProblem = fallbackProblems.find(p => p.id === problemId);
-        if (fallbackProblem) {
-          const isCorrect = Math.abs(fallbackProblem.answer - answer) < 0.001;
-          return {
-            is_correct: isCorrect,
-            message: isCorrect ? "答对了！" : "答错了，再试一次吧！",
-            need_extra_help: !isCorrect
-          };
+      // Parse hints if they're a JSON string
+      if (typeof problem.hints === 'string') {
+        try {
+          problem.hints = JSON.parse(problem.hints)
+        } catch (e) {
+          // If parsing fails, keep as string
+          console.warn('Failed to parse hints JSON:', e)
         }
-        return fallbackAttemptResult;
       }
       
-      throw new Error("提交答案失败，请稍后再试");
+      return problem
+    } catch (error) {
+      console.error('Error getting next problem:', error)
+      // Return a fallback problem
+      return FALLBACK_PROBLEM
     }
   },
-
-  askTutor: async (userId: string, question: string, hintType: "quick_hint" | "deep_analysis"): Promise<TutorResponse> => {
-    let clientId = localStorage.getItem('client_id');
-    if (!clientId) {
-      clientId = crypto.randomUUID();
-      localStorage.setItem('client_id', clientId);
-    }
-    
+  
+  async submitAnswer(
+    userId: string,
+    problemId: string,
+    answer: number
+  ): Promise<SubmitAnswerResponse> {
     try {
-      const response = await fetch(`${API_URL}/tutor/ask?service=deepseek`, {
-        method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          "x-client-id": clientId
+      // First try the evaluation endpoint
+      try {
+        const evalResponse = await fetch(`${API_BASE_URL}/evaluation/evaluate`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-client-id': localStorage.getItem('client_id') || 'unknown'
+          },
+          body: JSON.stringify({
+            problem_id: problemId,
+            user_answer: answer,
+            user_id: userId
+          })
+        })
+        
+        if (evalResponse.ok) {
+          const result = await evalResponse.json()
+          return {
+            is_correct: result.is_correct,
+            message: result.explanation
+          }
+        }
+      } catch (evalError) {
+        console.error('Error evaluating answer:', evalError)
+      }
+      
+      // If evaluation fails, try the attempts endpoint
+      const response = await fetch(`${API_BASE_URL}/problems/${problemId}/attempts`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-client-id': localStorage.getItem('client_id') || 'unknown'
         },
-        body: JSON.stringify({ user_id: userId || clientId, question, hint_type: hintType })
-      });
+        body: JSON.stringify({
+          user_id: userId,
+          answer
+        })
+      })
       
       if (!response.ok) {
-        throw new Error("AI助手暂时无法回答");
+        throw new Error('Failed to submit answer')
       }
       
-      return await response.json();
-    } catch (error: any) {
-      console.error("AI助手请求失败:", error);
+      return await response.json()
+    } catch (error) {
+      console.error('Error submitting answer:', error)
       
-      // Return a fallback response if backend is unavailable
-      if (USE_FALLBACK) {
-        console.log("Using fallback tutor response");
-        return fallbackTutorResponse;
+      // For fallback, check if the answer matches the fallback problem
+      const isCorrect = FALLBACK_PROBLEM.id === problemId 
+        ? Math.abs(answer - FALLBACK_PROBLEM.answer) < 0.001
+        : false
+        
+      // Return a fallback response
+      return {
+        is_correct: isCorrect,
+        message: isCorrect ? '答案正确！' : '答案不正确，再试一次！'
+      }
+    }
+  },
+  
+  // AI Tutor
+  async askTutor(
+    userId: string,
+    question: string,
+    service: string = 'deepseek'
+  ): Promise<TutorResponse> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/tutor/ask`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'x-client-id': localStorage.getItem('client_id') || 'unknown'
+        },
+        body: JSON.stringify({
+          user_id: userId,
+          question,
+          hint_type: 'quick_hint',
+          service
+        })
+      })
+      
+      if (!response.ok) {
+        throw new Error('Failed to get tutor response')
       }
       
-      throw new Error("AI助手暂时无法回答，请稍后再试");
+      return await response.json()
+    } catch (error) {
+      console.error('Error asking tutor:', error)
+      // Return a fallback response
+      return {
+        answer: '抱歉，AI助手暂时无法回答，请稍后再试。',
+        model: 'fallback'
+      }
     }
   }
-};
+}
+
+// Define User and Progress types for export
+export interface User {
+  id: string
+  username: string
+  grade_level: number
+  points: number
+  streak_days: number
+}
+
+export interface Progress {
+  points: number
+  streak_days: number
+  mastery_levels: Record<string, number>
+  achievements: Array<{
+    id: string
+    name: string
+    description: string
+    points: number
+  }>
+}
