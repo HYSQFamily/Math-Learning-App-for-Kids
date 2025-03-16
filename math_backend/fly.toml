@@ -1,13 +1,12 @@
 app = "math-learning-app-backend"
-primary_region = "sin"
+primary_region = "hkg"
 
 [build]
   dockerfile = "Dockerfile"
 
 [env]
   PORT = "8000"
-  REPLICATE_API_TOKEN = "${Replicate_API_TOKEN}"
-  DEEPSEEK_API_KEY = "sk-gnocejrrpjhfwpubniyokhgobfqcaqgxkeoixnrooweddurx"
+  # API tokens are set through Fly.io secrets
 
 [http_service]
   internal_port = 8000

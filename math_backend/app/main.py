@@ -17,7 +17,7 @@ if replicate_token:
     os.environ["REPLICATE_API_TOKEN"] = replicate_token
     logger.info("Replicate API token configured")
 
-deepseek_token = os.environ.get("DEEPSEEK_API_KEY", "sk-gnocejrrpjhfwpubniyokhgobfqcaqgxkeoixnrooweddurx")
+deepseek_token = os.environ.get("DEEPSEEK_API_KEY")
 if deepseek_token:
     os.environ["DEEPSEEK_API_KEY"] = deepseek_token
     logger.info("DeepSeek API token configured")
