@@ -11,7 +11,7 @@ class OpenAIProvider(Provider):
     """Provider for OpenAI API"""
     
     def __init__(self):
-        self.api_key = os.environ.get("OPENAI_API_TOKEN", "")
+        self.api_key = os.environ.get("OPENAI_API_KEY", "")
         self.model = "gpt-4o"
         self.api_url = "https://api.openai.com/v1/chat/completions"
         
@@ -67,25 +67,190 @@ class OpenAIProvider(Provider):
     
     async def generate_problem(self, request: ProblemGenerationRequest) -> Dict[str, Any]:
         """Generate a math problem using OpenAI"""
-        # This method will be implemented in the Replicate provider
-        # Here we just provide a simple problem
-        return {
-            "question": f"{request.grade_level}年级数学题: 8 + 9 = ?",
-            "answer": 17,
-            "knowledge_point": "加法",
-            "hints": ["可以先凑整10，再加剩余的数"],
-            "difficulty": request.difficulty or 2,
-            "type": "arithmetic"
-        }
+        try:
+            logger.info(f"Generating problem with OpenAI: Grade {request.grade_level}, Topic {request.topic}, Difficulty {request.difficulty}")
+            
+            # If no API key, return a simple problem
+            if not self.api_key:
+                return {
+                    "question": f"{request.grade_level}年级数学题: 7 + 8 = ?",
+                    "answer": 15,
+                    "knowledge_point": "加法",
+                    "hints": ["可以先凑成10，再加剩余的数"],
+                    "difficulty": request.difficulty or 2,
+                    "type": "arithmetic"
+                }
+            
+            # Set difficulty description
+            difficulty_desc = "简单"
+            if request.difficulty == 2:
+                difficulty_desc = "中等"
+            elif request.difficulty == 3:
+                difficulty_desc = "困难"
+            
+            # Set topic description
+            topic_desc = ""
+            if request.topic:
+                topic_desc = request.topic
+            
+            system_prompt = """你是一位小学数学老师，需要生成适合小学生的数学题目。
+            请生成一道数学题目，并按照以下JSON格式返回:
+            {
+                "question": "题目内容",
+                "answer": 数字答案,
+                "knowledge_point": "知识点",
+                "hints": ["提示1", "提示2"],
+                "difficulty": 难度等级(1-3),
+                "type": "题目类型"
+            }
+            
+            只返回JSON格式，不要有其他文字。确保answer是一个数字，不是字符串。
+            """
+            
+            # Call OpenAI API
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    self.api_url,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {self.api_key}"
+                    },
+                    json={
+                        "model": self.model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": f"请生成一道{request.grade_level}年级的{topic_desc}数学题目，难度为{difficulty_desc}。"}
+                        ],
+                        "temperature": 0.7,
+                        "max_tokens": 1000
+                    }
+                ) as response:
+                    if response.status != 200:
+                        raise Exception(f"OpenAI API returned status code {response.status}")
+                    
+                    data = await response.json()
+                    content = data["choices"][0]["message"]["content"]
+                    
+                    # Extract JSON from response
+                    try:
+                        # Find JSON in the response
+                        start_idx = content.find('{')
+                        end_idx = content.rfind('}') + 1
+                        if start_idx >= 0 and end_idx > start_idx:
+                            json_str = content[start_idx:end_idx]
+                            problem = json.loads(json_str)
+                            
+                            # Validate problem data
+                            if "question" not in problem or "answer" not in problem:
+                                raise ValueError("Invalid problem data: missing required fields")
+                            
+                            # Ensure answer is a number
+                            try:
+                                problem["answer"] = float(problem["answer"])
+                            except (ValueError, TypeError):
+                                problem["answer"] = 0
+                            
+                            # Ensure other fields exist
+                            problem.setdefault("knowledge_point", "基础数学")
+                            problem.setdefault("hints", ["思考一下基本的计算方法"])
+                            problem.setdefault("difficulty", request.difficulty or 2)
+                            problem.setdefault("type", "arithmetic")
+                            
+                            return problem
+                        else:
+                            raise ValueError("Could not find JSON in response")
+                    except json.JSONDecodeError:
+                        raise ValueError("Invalid JSON in response")
+            
+        except Exception as e:
+            logger.error(f"Error generating problem with OpenAI: {str(e)}")
+            # Return a fallback problem
+            return {
+                "question": f"{request.grade_level}年级数学题: 7 + 8 = ?",
+                "answer": 15,
+                "knowledge_point": "加法",
+                "hints": ["可以先凑成10，再加剩余的数"],
+                "difficulty": request.difficulty or 2,
+                "type": "arithmetic"
+            }
     
     async def evaluate_answer(self, problem_id: str, user_answer: float, correct_answer: float) -> Dict[str, Any]:
         """Evaluate a user's answer using OpenAI"""
-        # This method will be implemented in the DeepSeek provider
-        # Here we just provide a simple evaluation
-        is_correct = abs(user_answer - correct_answer) < 0.001
-        
-        return {
-            "is_correct": is_correct,
-            "explanation": "答案正确！" if is_correct else f"正确答案是 {correct_answer}",
-            "need_extra_help": not is_correct
-        }
+        try:
+            logger.info(f"Evaluating answer with OpenAI: Problem {problem_id}, User answer: {user_answer}, Correct answer: {correct_answer}")
+            
+            is_correct = abs(user_answer - correct_answer) < 0.001
+            
+            # If no API key, return a simple evaluation
+            if not self.api_key:
+                return {
+                    "is_correct": is_correct,
+                    "explanation": "答案正确！" if is_correct else f"正确答案是 {correct_answer}",
+                    "need_extra_help": not is_correct
+                }
+            
+            system_prompt = """你是一位小学数学老师，正在评估学生的答案。
+            请根据学生的答案和正确答案，提供友好的反馈。
+            如果答案正确，给予鼓励；如果答案错误，提供简短的解释和正确答案。
+            
+            请按照以下JSON格式返回评估结果:
+            {
+                "is_correct": true/false,
+                "explanation": "评价和解释",
+                "need_extra_help": true/false
+            }
+            
+            只返回JSON格式，不要有其他文字。
+            """
+            
+            # Call OpenAI API
+            async with aiohttp.ClientSession() as session:
+                async with session.post(
+                    self.api_url,
+                    headers={
+                        "Content-Type": "application/json",
+                        "Authorization": f"Bearer {self.api_key}"
+                    },
+                    json={
+                        "model": self.model,
+                        "messages": [
+                            {"role": "system", "content": system_prompt},
+                            {"role": "user", "content": f"问题ID: {problem_id}, 学生答案: {user_answer}, 正确答案: {correct_answer}"}
+                        ],
+                        "temperature": 0.3,
+                        "max_tokens": 500
+                    }
+                ) as response:
+                    if response.status != 200:
+                        raise Exception(f"OpenAI API returned status code {response.status}")
+                    
+                    data = await response.json()
+                    content = data["choices"][0]["message"]["content"]
+                    
+                    # Extract JSON from response
+                    try:
+                        # Find JSON in the response
+                        start_idx = content.find('{')
+                        end_idx = content.rfind('}') + 1
+                        if start_idx >= 0 and end_idx > start_idx:
+                            json_str = content[start_idx:end_idx]
+                            evaluation = json.loads(json_str)
+                            
+                            # Ensure required fields exist
+                            evaluation.setdefault("is_correct", is_correct)
+                            evaluation.setdefault("explanation", "答案正确！" if is_correct else f"正确答案是 {correct_answer}")
+                            evaluation.setdefault("need_extra_help", not is_correct)
+                            
+                            return evaluation
+                        else:
+                            raise ValueError("Could not find JSON in response")
+                    except json.JSONDecodeError:
+                        raise ValueError("Invalid JSON in response")
+            
+        except Exception as e:
+            logger.error(f"Error evaluating answer with OpenAI: {str(e)}")
+            return {
+                "is_correct": is_correct,
+                "explanation": "答案正确！" if is_correct else f"正确答案是 {correct_answer}",
+                "need_extra_help": not is_correct
+            }
