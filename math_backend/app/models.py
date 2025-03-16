@@ -1,9 +1,10 @@
 from sqlalchemy import Column, String, Integer, Float, Boolean, ForeignKey, DateTime
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.orm import relationship
-from pydantic import BaseModel, ConfigDict
-from typing import List, Dict, Optional
+from pydantic import BaseModel, ConfigDict, field_validator
+from typing import List, Dict, Optional, Union, Any
 from datetime import datetime
+import json
 
 Base = declarative_base()
 
@@ -89,11 +90,27 @@ class ProblemResponse(BaseModel):
     question: str
     answer: float
     difficulty: int
-    hints: str
+    hints: Union[str, List[str]]
     knowledge_point: str
     type: str
     
     model_config = ConfigDict(from_attributes=True)
+    
+    @field_validator('hints')
+    @classmethod
+    def validate_hints(cls, v):
+        if isinstance(v, str):
+            try:
+                # Try to parse as JSON
+                hints_list = json.loads(v)
+                if isinstance(hints_list, list):
+                    return v  # Keep as string if it's a valid JSON list
+                return v  # Keep as string if it's not a list
+            except:
+                return v  # Keep as string if it's not valid JSON
+        elif isinstance(v, list):
+            return json.dumps(v)  # Convert list to JSON string
+        return v
 
 class AttemptCreate(BaseModel):
     user_id: str
