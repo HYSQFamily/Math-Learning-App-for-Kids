@@ -1,10 +1,11 @@
 import * as React from "react"
-import { useReducer, useEffect, useRef } from "react"
+import { useReducer, useEffect, useRef, useState } from "react"
 import type { Problem } from "./types"
 import { TutorChat } from "./components/TutorChat"
 import { Button } from "./components/ui/button"
 import { api } from "./lib/api"
 import { isValidNumber } from "./lib/utils"
+import type { User } from "./lib/api"
 
 // Add React to global scope for JSX
 declare global {
@@ -122,8 +123,34 @@ const initialState: State = {
 export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState)
   const answerInputRef = useRef<HTMLInputElement>(null)
+  const [user, setUser] = useState<User | null>(null)
+  // Using any type for progress data
+  const [userProgress, setUserProgress] = useState<any>(null)
 
   useEffect(() => {
+    // Load user data and progress
+    const loadUserData = async () => {
+      try {
+        // Get client ID from localStorage or generate a new one
+        let clientId = localStorage.getItem('client_id')
+        if (!clientId) {
+          clientId = crypto.randomUUID()
+          localStorage.setItem('client_id', clientId)
+        }
+        
+        const userData = await api.getUser(clientId)
+        setUser(userData)
+        
+        if (userData && userData.id) {
+          const progressData = await api.getUserProgress(userData.id)
+          setUserProgress(progressData)
+        }
+      } catch (error) {
+        console.error("Error loading user data:", error)
+      }
+    }
+    
+    loadUserData()
     fetchNextProblem()
   }, [])
 
@@ -135,9 +162,19 @@ export default function App() {
         try {
           const nextProblem = await api.getNextProblem()
           if (nextProblem) {
-            dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem: nextProblem } })
+            // Convert API problem to the format expected by the reducer
+            const problem: Problem = {
+              id: nextProblem.id || `problem-${Date.now()}`,
+              question: nextProblem.question || "5 + 7 = ?",
+              answer: nextProblem.answer || 0,
+              knowledge_point: nextProblem.knowledge_point || "addition",
+              related_points: nextProblem.related_points || [],
+              difficulty: nextProblem.difficulty || 1,
+              created_at: nextProblem.created_at || new Date().toISOString()
+            }
+            dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem } })
             dispatch({ type: "TRANSITION_COMPLETE" })
-          } else {
+          }else {
             dispatch({ type: "SET_ERROR", payload: "获取下一题失败，请刷新页面重试" })
           }
         } catch (error: any) {
@@ -183,7 +220,17 @@ export default function App() {
     try {
       dispatch({ type: "NEXT_PROBLEM_START" })
       const nextProblem = await api.getNextProblem()
-      dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem: nextProblem } })
+      // Convert API problem to the format expected by the reducer
+      const problem: Problem = {
+        id: nextProblem.id || `problem-${Date.now()}`,
+        question: nextProblem.question || "5 + 7 = ?",
+        answer: nextProblem.answer || 0,
+        knowledge_point: nextProblem.knowledge_point || "addition",
+        related_points: nextProblem.related_points || [],
+        difficulty: nextProblem.difficulty || 1,
+        created_at: nextProblem.created_at || new Date().toISOString()
+      }
+      dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem } })
     } catch (error: any) {
       console.error("获取题目失败:", error)
       dispatch({ type: "SET_ERROR", payload: error.message || "获取题目失败，请刷新页面重试" })
@@ -231,8 +278,15 @@ export default function App() {
       <div className="max-w-4xl mx-auto">
         <div className="mb-8 flex items-center justify-between">
           <h1 className="text-2xl font-bold text-gray-900">数学学习助手</h1>
-          <div className="text-sm text-gray-500 bg-white/80 px-2 py-1 rounded-full border border-gray-200">
-            使用了DeepSeek AI大模型
+          <div className="flex items-center gap-4">
+            {user && (
+              <div className="text-sm bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
+                {user.username} | 积分: {user.points}
+              </div>
+            )}
+            <div className="text-sm text-gray-500 bg-white/80 px-2 py-1 rounded-full border border-gray-200">
+              使用了DeepSeek AI大模型
+            </div>
           </div>
         </div>
 

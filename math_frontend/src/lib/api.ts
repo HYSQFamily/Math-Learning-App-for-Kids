@@ -1,33 +1,112 @@
-export interface Problem {
+import type { Problem as ProblemType, SubmitAnswerResponse, TutorResponse as TutorResponseType } from "../types";
+
+export interface User {
   id: string;
-  question: string;
-  answer: number;
-  hints: string[];
-  knowledge_point: string;
-  related_points?: string[];
+  username: string;
+  grade_level: number;
+  points: number;
+  streak_days: number;
 }
 
-export interface AttemptResult {
-  is_correct: boolean;
+export interface Problem extends ProblemType {
+  hints: string[];
+  type?: string;
+}
+
+export interface AttemptResult extends SubmitAnswerResponse {
   need_extra_help?: boolean;
   mastery_level?: number;
+  explanation?: string;
 }
 
-export interface TutorResponse {
-  answer: string;
-  model?: string;
-}
+export interface TutorResponse extends TutorResponseType {}
 
-const API_URL = import.meta.env.VITE_API_URL || "https://math-learning-app-backend-devin.fly.dev"
+const API_URL = "https://math-learning-app-backend.fly.dev"
 
 export const api = {
-  getNextProblem: async (): Promise<Problem> => {
+  getUser: async (userId?: string): Promise<User> => {
+    let clientId = localStorage.getItem('client_id')
+    if (!clientId) {
+      clientId = crypto.randomUUID()
+      localStorage.setItem('client_id', clientId)
+    }
+    
     try {
-      let clientId = localStorage.getItem('client_id')
-      if (!clientId) {
-        clientId = crypto.randomUUID()
-        localStorage.setItem('client_id', clientId)
+      // Use client ID if no user ID provided
+      const effectiveUserId = userId || clientId || 'default-user'
+      
+      const response = await fetch(`${API_URL}/users/${effectiveUserId}`, {
+        headers: {
+          'x-client-id': clientId
+        }
+      })
+      
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: "网络错误" }))
+        throw new Error(error.detail || "获取用户信息失败")
       }
+      
+      return await response.json()
+    } catch (error: any) {
+      console.error("获取用户信息失败:", error)
+      // Return a default user object instead of throwing
+      return {
+        id: clientId || "default-user",
+        username: "DefaultUser",
+        grade_level: 3,
+        points: 0,
+        streak_days: 0
+      }
+    }
+  },
+  
+  getUserProgress: async (userId?: string): Promise<any> => {
+    let clientId = localStorage.getItem('client_id')
+    if (!clientId) {
+      clientId = crypto.randomUUID()
+      localStorage.setItem('client_id', clientId)
+    }
+    
+    try {
+      // Use client ID if no user ID provided
+      const effectiveUserId = userId || clientId || 'default-user'
+      
+      const response = await fetch(`${API_URL}/users/${effectiveUserId}/progress`, {
+        headers: {
+          'x-client-id': clientId
+        }
+      })
+      
+      if (!response.ok) {
+        const error = await response.json().catch(() => ({ detail: "网络错误" }))
+        throw new Error(error.detail || "获取学习进度失败")
+      }
+      
+      return await response.json()
+    } catch (error: any) {
+      console.error("获取学习进度失败:", error)
+      // Return default progress instead of throwing
+      return {
+        points: 0,
+        streak_days: 0,
+        mastery_levels: {
+          addition: 0.0,
+          subtraction: 0.0,
+          multiplication: 0.0
+        },
+        achievements: []
+      }
+    }
+  },
+  
+  getNextProblem: async (): Promise<Problem> => {
+    let clientId = localStorage.getItem('client_id')
+    if (!clientId) {
+      clientId = crypto.randomUUID()
+      localStorage.setItem('client_id', clientId)
+    }
+    
+    try {
       const response = await fetch(`${API_URL}/problems/next`, {
         headers: {
           'x-client-id': clientId
@@ -49,19 +128,24 @@ export const api = {
   },
 
   submitAnswer: async (problemId: string, answer: number): Promise<AttemptResult> => {
+    let clientId = localStorage.getItem('client_id')
+    if (!clientId) {
+      clientId = crypto.randomUUID()
+      localStorage.setItem('client_id', clientId)
+    }
+    
     try {
-      let clientId = localStorage.getItem('client_id')
-      if (!clientId) {
-        clientId = crypto.randomUUID()
-        localStorage.setItem('client_id', clientId)
-      }
       const response = await fetch(`${API_URL}/problems/submit`, {
         method: "POST",
         headers: { 
           "Content-Type": "application/json",
           "x-client-id": clientId
         },
-        body: JSON.stringify({ problem_id: problemId, answer })
+        body: JSON.stringify({ 
+          user_id: clientId, 
+          problem_id: problemId, 
+          answer 
+        })
       })
       if (!response.ok) {
         const error = await response.json().catch(() => ({ detail: "网络错误" }))
@@ -79,11 +163,20 @@ export const api = {
   },
 
   askTutor: async (userId: string, question: string, hintType: "quick_hint" | "deep_analysis"): Promise<TutorResponse> => {
+    let clientId = localStorage.getItem('client_id')
+    if (!clientId) {
+      clientId = crypto.randomUUID()
+      localStorage.setItem('client_id', clientId)
+    }
+    
     try {
       const response = await fetch(`${API_URL}/tutor/ask?service=deepseek`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ user_id: userId, question, hint_type: hintType })
+        headers: { 
+          "Content-Type": "application/json",
+          "x-client-id": clientId
+        },
+        body: JSON.stringify({ user_id: userId || clientId, question, hint_type: hintType })
       })
       if (!response.ok) {
         const error = await response.json().catch(() => ({ detail: "网络错误" }))
