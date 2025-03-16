@@ -2,33 +2,17 @@ FROM python:3.12-slim
 
 WORKDIR /app
 
-# Install Poetry
-RUN pip install poetry==1.7.1
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy poetry configuration files
-COPY pyproject.toml poetry.lock* /app/
+COPY . .
 
-# Configure poetry to not create a virtual environment
-RUN poetry config virtualenvs.create false
-
-# Install dependencies
-RUN poetry install --no-interaction --no-ansi --no-dev
-
-# Copy application code
-COPY . /app/
-
-# Make sure the database directory exists and is writable
-RUN mkdir -p /data && chmod 777 /data
+# Create database directory
+RUN mkdir -p /data
 
 # Set environment variables
-ENV DATABASE_URL="sqlite:///./math_app.db"
-ENV PYTHONPATH="/app"
+ENV DATABASE_URL=sqlite:////data/math_app.db
+ENV PORT=8000
 
-# Run the database fix script to ensure proper initialization
-RUN python fix_db.py
-
-# Expose the port
-EXPOSE 8000
-
-# Start the application
+# Run the application
 CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "8000"]
