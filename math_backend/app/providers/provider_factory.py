@@ -3,13 +3,15 @@ from typing import Dict, Type
 from .base_provider import BaseProvider
 from .deepseek_provider import DeepSeekProvider
 from .openai_provider import OpenAIProvider
+from .replicate_provider import ReplicateProvider
 
 logger = logging.getLogger(__name__)
 
 class ProviderFactory:
     _providers: Dict[str, Type[BaseProvider]] = {
         "deepseek": DeepSeekProvider,
-        "openai": OpenAIProvider
+        "openai": OpenAIProvider,
+        "replicate": ReplicateProvider
     }
     
     @classmethod
