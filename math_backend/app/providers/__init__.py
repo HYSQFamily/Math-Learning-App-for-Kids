@@ -1,12 +1,19 @@
-from .base_provider import BaseProvider, TutorRequest
-from .provider_factory import ProviderFactory
-from .openai_provider import OpenAIProvider
-from .deepseek_provider import DeepSeekProvider
+from pydantic import BaseModel
+from typing import Optional
 
-__all__ = [
-    'BaseProvider',
-    'TutorRequest',
-    'ProviderFactory',
-    'OpenAIProvider',
-    'DeepSeekProvider'
-]
+class TutorRequest(BaseModel):
+    user_id: str
+    question: str
+    hint_type: str = "quick_hint"
+
+class ProviderFactory:
+    @staticmethod
+    def get_provider(service_name: str):
+        """Get the appropriate AI provider based on service name"""
+        if service_name.lower() == "openai":
+            from .openai_provider import OpenAIProvider
+            return OpenAIProvider()
+        else:
+            # Default to DeepSeek
+            from .deepseek_provider import DeepSeekProvider
+            return DeepSeekProvider()

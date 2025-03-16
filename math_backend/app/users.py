@@ -1,6 +1,6 @@
-from fastapi import APIRouter, HTTPException, Depends
+from fastapi import APIRouter, HTTPException, Depends, Header
 from sqlalchemy.orm import Session
-from typing import List, Optional
+from typing import List, Optional, Dict
 from uuid import uuid4
 import sqlalchemy.exc
 
@@ -31,16 +31,20 @@ def create_user(user: UserCreate, db: Session = Depends(get_db)):
     return db_user
 
 @router.get("/{user_id}", response_model=UserResponse)
-def get_user(user_id: str, db: Session = Depends(get_db)):
+def get_user(user_id: str, x_client_id: Optional[str] = Header(None), db: Session = Depends(get_db)):
     # Handle "undefined" user ID
     if user_id == "undefined" or user_id == "null":
-        return UserResponse(
-            id="default-user",
-            username="DefaultUser",
-            grade_level=3,
-            points=0,
-            streak_days=0
-        )
+        # Use client_id if available
+        if x_client_id:
+            user_id = x_client_id
+        else:
+            return UserResponse(
+                id="default-user",
+                username="DefaultUser",
+                grade_level=3,
+                points=0,
+                streak_days=0
+            )
     
     try:
         user = db.query(User).filter(User.id == user_id).first()
@@ -70,19 +74,23 @@ def get_user(user_id: str, db: Session = Depends(get_db)):
         )
 
 @router.get("/{user_id}/progress", response_model=ProgressResponse)
-def get_user_progress(user_id: str, db: Session = Depends(get_db)):
+def get_user_progress(user_id: str, x_client_id: Optional[str] = Header(None), db: Session = Depends(get_db)):
     # Handle "undefined" user ID
     if user_id == "undefined" or user_id == "null":
-        return ProgressResponse(
-            points=0,
-            streak_days=0,
-            mastery_levels={
-                "addition": 0.0,
-                "subtraction": 0.0,
-                "multiplication": 0.0
-            },
-            achievements=[]
-        )
+        # Use client_id if available
+        if x_client_id:
+            user_id = x_client_id
+        else:
+            return ProgressResponse(
+                points=0,
+                streak_days=0,
+                mastery_levels={
+                    "addition": 0.0,
+                    "subtraction": 0.0,
+                    "multiplication": 0.0
+                },
+                achievements=[]
+            )
     
     try:
         user = db.query(User).filter(User.id == user_id).first()

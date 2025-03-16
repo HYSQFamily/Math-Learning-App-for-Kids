@@ -1,103 +1,65 @@
 import os
-import logging
+import httpx
 import json
-import aiohttp
-from typing import Optional
-from .base_provider import BaseProvider, TutorRequest
+import logging
+from typing import Dict, Any, Optional
 
-logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class DeepSeekProvider(BaseProvider):
+class DeepSeekProvider:
     def __init__(self):
-        self.api_token = os.getenv("SF_DEEPSEEK_API_TOKEN_NEW")
-        if not self.api_token:
-            logger.error("Missing API token")
-            raise ValueError("智能助教暂时无法使用，请稍后再试")
-        self.api_url = "https://api.siliconflow.cn/v1/chat/completions"
-        self.model = "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B"
-        self.model_configs = {
-            "quick_hint": {
-                "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
-                "max_tokens": 128,
-                "temperature": 0.7,
-                "timeout": 10,
-                "top_p": 0.9,
-                "frequency_penalty": 0.3,
-                "retry_count": 2
-            },
-            "deep_analysis": {
-                "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
-                "max_tokens": 256,
-                "temperature": 0.5,
-                "timeout": 15,
-                "top_p": 0.7,
-                "frequency_penalty": 0.5,
-                "retry_count": 1
-            },
-            "parent_guidance": {
-                "model": "deepseek-ai/DeepSeek-R1-Distill-Qwen-7B",
-                "max_tokens": 512,
-                "temperature": 0.3,
-                "timeout": 20,
-                "top_p": 0.8,
-                "frequency_penalty": 0.4,
-                "retry_count": 1
-            }
-        }
-        logger.info("AI service initialized")
-
-    async def ask(self, request: TutorRequest) -> str:
+        self.model = "deepseek-chat"
+        self.api_key = os.getenv("DEEPSEEK_API_KEY", "")
+        self.api_url = "https://api.deepseek.com/v1/chat/completions"
+        
+    async def ask(self, request):
+        """Send a question to DeepSeek API and get a response"""
         try:
-            logger.info("Processing request")
+            # Fallback response in case of errors
+            fallback_response = "我现在无法连接到AI服务，请稍后再试。这道题目你可以尝试先分解问题，一步一步解决。"
+            
+            if not self.api_key:
+                logger.warning("DeepSeek API key not found, using fallback response")
+                return fallback_response
+                
+            # Create the prompt for the AI
+            system_prompt = """你是一位小学数学老师，名叫"智能数学助教"。你的任务是帮助小学生理解和解决数学问题。
+            请用简单、友好的语言回答问题，避免使用复杂术语。
+            对于简单问题，给出简短的提示和引导，而不是直接告诉答案。
+            对于复杂问题，可以分步骤解释思路。
+            始终保持耐心和鼓励的态度。"""
+            
+            # Prepare the API request
             headers = {
                 "Content-Type": "application/json",
-                "Authorization": f"Bearer {self.api_token}"
+                "Authorization": f"Bearer {self.api_key}"
             }
-            
-            config = self.model_configs[request.hint_type]
-            self.model = config["model"]
             
             payload = {
-                "model": self.model,
+                "model": "deepseek-chat",
                 "messages": [
-                    {"role": "system", "content": self.get_system_prompt()},
+                    {"role": "system", "content": system_prompt},
                     {"role": "user", "content": request.question}
                 ],
-                "stream": False,
-                "max_tokens": config["max_tokens"],
-                "temperature": config["temperature"],
-                "top_p": 0.7,
-                "top_k": 50,
-                "frequency_penalty": 0.5,
-                "response_format": {"type": "text"}
+                "temperature": 0.7,
+                "max_tokens": 800
             }
             
-            timeout = aiohttp.ClientTimeout(total=config["timeout"])
-            async with aiohttp.ClientSession(timeout=timeout) as session:
-                try:
-                    async with session.post(self.api_url, headers=headers, json=payload) as response:
-                        if response.status != 200:
-                            logger.error(f"Service error: {response.status}")
-                            raise ValueError("智能助教暂时无法使用，请稍后再试")
-                        
-                        data = await response.json()
-                        if not data.get("choices") or not data["choices"]:
-                            logger.error("Invalid response: missing choices")
-                            raise ValueError("智能助教暂时无法使用，请稍后再试")
-                        
-                        content = data["choices"][0].get("message", {}).get("content")
-                        if not content:
-                            logger.error("Invalid response: empty content")
-                            raise ValueError("智能助教暂时无法使用，请稍后再试")
-                            
-                        logger.info("Request completed successfully")
-                        return content
-                        
-                except aiohttp.ClientError as e:
-                    logger.error(f"Connection error: {str(e)}")
-                    raise ValueError("智能助教暂时无法使用，请稍后再试")
+            # Make the API request with timeout
+            async with httpx.AsyncClient(timeout=10.0) as client:
+                response = await client.post(
+                    self.api_url,
+                    headers=headers,
+                    json=payload
+                )
+                
+                if response.status_code == 200:
+                    result = response.json()
+                    return result["choices"][0]["message"]["content"]
+                else:
+                    logger.error(f"DeepSeek API error: {response.status_code} - {response.text}")
+                    return fallback_response
                     
         except Exception as e:
-            logger.error(f"Service error: {str(e)}")
-            raise ValueError("智能助教暂时无法使用，请稍后再试")
+            logger.exception(f"Error in DeepSeek provider: {str(e)}")
+            return fallback_response

@@ -8,6 +8,7 @@ load_dotenv()
 
 from .aitutor import router as tutor_router
 from .problems import router as problems_router
+from .users import router as users_router
 
 app = FastAPI()
 
@@ -21,6 +22,7 @@ app.add_middleware(
 
 app.include_router(problems_router, prefix="/problems", tags=["problems"])
 app.include_router(tutor_router, prefix="/tutor", tags=["tutor"])
+app.include_router(users_router, prefix="/users", tags=["users"])
 
 @app.get("/")
 async def root():
