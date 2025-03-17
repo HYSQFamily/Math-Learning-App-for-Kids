@@ -6,7 +6,9 @@ primary_region = "hkg"
 
 [env]
   PORT = "8000"
-  # API tokens are set through Fly.io secrets
+  # API tokens are set via fly secrets, not hardcoded here
+  # REPLICATE_API_TOKEN = "r8_eGzwxuZM1YLmu2YoPPVQKizCZ4KwLi00Obptf"
+  # DEEPSEEK_API_KEY is set via fly secrets
 
 [http_service]
   internal_port = 8000

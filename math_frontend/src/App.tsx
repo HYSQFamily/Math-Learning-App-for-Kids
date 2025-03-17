@@ -251,7 +251,8 @@ function App() {
       const topics = ['addition', 'subtraction', 'multiplication', 'division']
       const randomTopic = topics[Math.floor(Math.random() * topics.length)]
       
-      const problem = await api.getNextProblem(topic || randomTopic, timestamp)
+      // Pass language parameter for bilingual problems
+      const problem = await api.getNextProblem(topic || randomTopic, timestamp, "sv+zh")
       
       dispatch({
         type: 'LOAD_PROBLEM_SUCCESS',

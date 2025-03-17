@@ -34,7 +34,14 @@ export function ProblemDisplay({
           </span>
         </div>
         <h2 className="text-xl font-semibold mb-2">题目</h2>
-        <p className="text-lg">{problem.question}</p>
+        {typeof problem.question === 'string' ? (
+          <p className="text-lg">{problem.question}</p>
+        ) : (
+          <div className="space-y-2">
+            <p className="text-lg font-medium">中文: {problem.question.zh}</p>
+            <p className="text-lg font-medium">Svenska: {problem.question.sv}</p>
+          </div>
+        )}
       </div>
 
       <form onSubmit={onSubmit} className="mb-4">

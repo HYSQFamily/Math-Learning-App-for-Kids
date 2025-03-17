@@ -4,7 +4,10 @@ import { Problem } from '../types'
 export const fallbackProblems: Problem[] = [
   {
     id: 'fallback-1',
-    question: '5 + 7 = ?',
+    question: {
+      zh: '5 + 7 = ?',
+      sv: '5 + 7 = ?'
+    },
     answer: 12,
     knowledge_point: 'addition',
     difficulty: 1,
@@ -13,7 +16,10 @@ export const fallbackProblems: Problem[] = [
   },
   {
     id: 'fallback-2',
-    question: '15 - 8 = ?',
+    question: {
+      zh: '15 - 8 = ?',
+      sv: '15 - 8 = ?'
+    },
     answer: 7,
     knowledge_point: 'subtraction',
     difficulty: 1,
@@ -22,7 +28,10 @@ export const fallbackProblems: Problem[] = [
   },
   {
     id: 'fallback-3',
-    question: '4 × 6 = ?',
+    question: {
+      zh: '4 × 6 = ?',
+      sv: '4 × 6 = ?'
+    },
     answer: 24,
     knowledge_point: 'multiplication',
     difficulty: 2,
@@ -31,7 +40,10 @@ export const fallbackProblems: Problem[] = [
   },
   {
     id: 'fallback-4',
-    question: '20 ÷ 5 = ?',
+    question: {
+      zh: '20 ÷ 5 = ?',
+      sv: '20 ÷ 5 = ?'
+    },
     answer: 4,
     knowledge_point: 'division',
     difficulty: 2,
@@ -40,7 +52,10 @@ export const fallbackProblems: Problem[] = [
   },
   {
     id: 'fallback-5',
-    question: '小明有8个苹果，小红有5个苹果，小明比小红多几个苹果？',
+    question: {
+      zh: '小明有8个苹果，小红有5个苹果，小明比小红多几个苹果？',
+      sv: 'Xiao Ming har 8 äpplen och Xiao Hong har 5 äpplen. Hur många fler äpplen har Xiao Ming än Xiao Hong?'
+    },
     answer: 3,
     knowledge_point: 'subtraction',
     difficulty: 1,
@@ -49,7 +64,10 @@ export const fallbackProblems: Problem[] = [
   },
   {
     id: 'fallback-6',
-    question: '一个长方形长6厘米，宽4厘米，它的面积是多少平方厘米？',
+    question: {
+      zh: '一个长方形长6厘米，宽4厘米，它的面积是多少平方厘米？',
+      sv: 'En rektangel är 6 cm lång och 4 cm bred. Vad är dess area i kvadratcentimeter?'
+    },
     answer: 24,
     knowledge_point: 'multiplication',
     difficulty: 2,
