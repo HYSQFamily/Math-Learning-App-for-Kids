@@ -37,8 +37,10 @@ app.add_middleware(
     allow_origins=[
         "https://math-learning-app-qt3bvm4s.devinapps.com",
         "https://math-learning-app-backend.fly.dev",
+        "https://math-learning-app-backend-nbpuekjl.fly.dev",
         "http://localhost:5173",
-        "http://localhost:3000"
+        "http://localhost:3000",
+        "*"  # Temporarily allow all origins for testing
     ],
     allow_credentials=True,
     allow_methods=["*"],  # Allow all methods
