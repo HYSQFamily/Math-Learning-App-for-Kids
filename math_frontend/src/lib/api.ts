@@ -27,7 +27,8 @@ export const api = {
           'Content-Type': 'application/json',
           'x-client-id': localStorage.getItem('client_id') || 'unknown'
         },
-        body: JSON.stringify({ username, grade_level: gradeLevel })
+        body: JSON.stringify({ username, grade_level: gradeLevel }),
+        mode: 'cors' // Explicitly set CORS mode
       })
       
       if (!response.ok) {
@@ -53,7 +54,8 @@ export const api = {
       const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
         headers: {
           'x-client-id': localStorage.getItem('client_id') || 'unknown'
-        }
+        },
+        mode: 'cors' // Explicitly set CORS mode
       })
       
       if (!response.ok) {
@@ -79,7 +81,8 @@ export const api = {
       const response = await fetch(`${API_BASE_URL}/users/${userId}/progress`, {
         headers: {
           'x-client-id': localStorage.getItem('client_id') || 'unknown'
-        }
+        },
+        mode: 'cors' // Explicitly set CORS mode
       })
       
       if (!response.ok) {
@@ -106,15 +109,21 @@ export const api = {
       try {
         const topicParam = topic ? `&topic=${topic}` : '';
         const timeParam = timestamp ? `&timestamp=${timestamp}` : `&timestamp=${Date.now()}`;
+        
+        // Use no-cors mode to avoid CORS errors
         const genResponse = await fetch(`${API_BASE_URL}/generator/generate?grade_level=3&service=replicate${topicParam}${timeParam}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
             'x-client-id': localStorage.getItem('client_id') || 'unknown'
-          }
-        })
+          },
+          mode: 'cors' // Try with CORS mode first
+        }).catch(error => {
+          console.warn('CORS error with generator endpoint:', error);
+          throw error; // Re-throw to trigger fallback
+        });
         
-        if (genResponse.ok) {
+        if (genResponse && genResponse.ok) {
           const problem = await genResponse.json()
           
           // Parse hints if they're a JSON string
@@ -134,32 +143,60 @@ export const api = {
       }
       
       // If generator fails, try the problems/next endpoint
-      const response = await fetch(`${API_BASE_URL}/problems/next`, {
-        headers: {
-          'x-client-id': localStorage.getItem('client_id') || 'unknown'
+      try {
+        const response = await fetch(`${API_BASE_URL}/problems/next`, {
+          headers: {
+            'x-client-id': localStorage.getItem('client_id') || 'unknown'
+          },
+          mode: 'cors' // Try with CORS mode
+        }).catch(error => {
+          console.warn('CORS error with problems/next endpoint:', error);
+          throw error; // Re-throw to trigger fallback
+        });
+        
+        if (response && response.ok) {
+          const problem = await response.json()
+          
+          // Parse hints if they're a JSON string
+          if (typeof problem.hints === 'string') {
+            try {
+              problem.hints = JSON.parse(problem.hints)
+            } catch (e) {
+              // If parsing fails, keep as string
+              console.warn('Failed to parse hints JSON:', e)
+            }
+          }
+          
+          return problem
         }
-      })
-      
-      if (!response.ok) {
-        throw new Error('Problem not found')
+      } catch (nextError) {
+        console.error('Error getting next problem:', nextError)
       }
       
-      const problem = await response.json()
+      // If all API calls fail, use fallback data
+      console.log('Using fallback problem due to API failures');
       
-      // Parse hints if they're a JSON string
-      if (typeof problem.hints === 'string') {
-        try {
-          problem.hints = JSON.parse(problem.hints)
-        } catch (e) {
-          // If parsing fails, keep as string
-          console.warn('Failed to parse hints JSON:', e)
+      // Import fallback problems dynamically
+      const { fallbackProblems } = await import('../lib/fallbackData');
+      
+      // Select a random problem based on topic if possible
+      let filteredProblems = fallbackProblems;
+      if (topic) {
+        const topicProblems = fallbackProblems.filter(p => 
+          p.knowledge_point.toLowerCase() === topic.toLowerCase()
+        );
+        if (topicProblems.length > 0) {
+          filteredProblems = topicProblems;
         }
       }
       
-      return problem
+      // Get a random problem
+      const randomIndex = Math.floor(Math.random() * filteredProblems.length);
+      return filteredProblems[randomIndex];
+      
     } catch (error) {
-      console.error('Error getting next problem:', error)
-      // Return a fallback problem
+      console.error('All problem fetching methods failed:', error)
+      // Return a fallback problem as last resort
       return FALLBACK_PROBLEM
     }
   },
@@ -182,10 +219,14 @@ export const api = {
             problem_id: problemId,
             user_answer: answer,
             user_id: userId
-          })
-        })
+          }),
+          mode: 'cors' // Try with CORS mode
+        }).catch(error => {
+          console.warn('CORS error with evaluation endpoint:', error);
+          throw error; // Re-throw to trigger fallback
+        });
         
-        if (evalResponse.ok) {
+        if (evalResponse && evalResponse.ok) {
           const result = await evalResponse.json()
           return {
             is_correct: result.is_correct,
@@ -197,30 +238,50 @@ export const api = {
       }
       
       // If evaluation fails, try the attempts endpoint
-      const response = await fetch(`${API_BASE_URL}/problems/${problemId}/attempts`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-client-id': localStorage.getItem('client_id') || 'unknown'
-        },
-        body: JSON.stringify({
-          user_id: userId,
-          answer
-        })
-      })
-      
-      if (!response.ok) {
-        throw new Error('Failed to submit answer')
+      try {
+        const response = await fetch(`${API_BASE_URL}/problems/${problemId}/attempts`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-client-id': localStorage.getItem('client_id') || 'unknown'
+          },
+          body: JSON.stringify({
+            user_id: userId,
+            answer
+          }),
+          mode: 'cors' // Try with CORS mode
+        }).catch(error => {
+          console.warn('CORS error with attempts endpoint:', error);
+          throw error; // Re-throw to trigger fallback
+        });
+        
+        if (response && response.ok) {
+          return await response.json()
+        }
+      } catch (attemptError) {
+        console.error('Error submitting attempt:', attemptError)
       }
       
-      return await response.json()
+      // For fallback, check if the answer matches the fallback problem
+      const { fallbackProblems } = await import('../lib/fallbackData');
+      const matchingProblem = fallbackProblems.find(p => p.id === problemId);
+      
+      const isCorrect = matchingProblem 
+        ? Math.abs(answer - matchingProblem.answer) < 0.001
+        : false;
+        
+      // Return a fallback response
+      return {
+        is_correct: isCorrect,
+        message: isCorrect ? '答案正确！' : '答案不正确，再试一次！'
+      }
     } catch (error) {
-      console.error('Error submitting answer:', error)
+      console.error('All answer submission methods failed:', error)
       
       // For fallback, check if the answer matches the fallback problem
       const isCorrect = FALLBACK_PROBLEM.id === problemId 
         ? Math.abs(answer - FALLBACK_PROBLEM.answer) < 0.001
-        : false
+        : false;
         
       // Return a fallback response
       return {
@@ -248,14 +309,18 @@ export const api = {
           question,
           hint_type: 'quick_hint',
           service
-        })
-      })
+        }),
+        mode: 'cors' // Try with CORS mode
+      }).catch(error => {
+        console.warn('CORS error with tutor endpoint:', error);
+        throw error; // Re-throw to trigger fallback
+      });
       
-      if (!response.ok) {
-        throw new Error('Failed to get tutor response')
+      if (response && response.ok) {
+        return await response.json()
       }
       
-      return await response.json()
+      throw new Error('Failed to get tutor response')
     } catch (error) {
       console.error('Error asking tutor:', error)
       // Return a fallback response
