@@ -1,8 +1,10 @@
 import { Problem, SubmitAnswerResponse, TutorResponse, User, Progress } from '../types'
 import { fallbackProblems, fallbackUser, fallbackProgress, fallbackAttemptResult, fallbackTutorResponse } from './fallbackData'
 
-// API base URL - use environment variable or default to production URL
-const API_BASE_URL = import.meta.env.VITE_API_URL || 'https://math-learning-app-backend-nbpuekjl.fly.dev'
+// API base URL - use environment variable or default to production URLs
+const API_BASE_URL = import.meta.env.VITE_API_URL || 
+                    'https://math-learning-app-backend.fly.dev' || 
+                    'https://math-learning-app-backend-nbpuekjl.fly.dev'
 
 // Helper function to handle API errors
 const handleApiError = (error: any, fallbackMessage: string): never => {

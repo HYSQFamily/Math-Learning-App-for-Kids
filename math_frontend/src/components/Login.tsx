@@ -32,7 +32,24 @@ export function Login({ onLogin }: LoginProps) {
       await onLogin(username, gradeLevel)
     } catch (error: any) {
       console.error("Error logging in:", error)
-      setError(error.message || '登录失败，请重试')
+      
+      // Improved error message for CORS errors
+      if (error.message && (
+        error.message.includes('NetworkError') || 
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('Network request failed') ||
+        error.message.includes('CORS')
+      )) {
+        setError('无法连接到服务器，正在使用离线模式')
+        // Proceed with fallback login after a short delay
+        setTimeout(() => {
+          onLogin(username, gradeLevel).catch(e => {
+            console.error("Fallback login failed:", e)
+          })
+        }, 1000)
+      } else {
+        setError(error.message || '登录失败，请重试')
+      }
     } finally {
       setIsSubmitting(false)
     }
