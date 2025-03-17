@@ -2,7 +2,7 @@ import { Problem, SubmitAnswerResponse, TutorResponse } from '../types'
 // User and Progress interfaces are defined at the bottom of this file
 
 // API base URL - use the deployed backend
-const API_BASE_URL = 'https://math-learning-app-backend.fly.dev'
+const API_BASE_URL = 'https://math-learning-app-backend-nbpuekjl.fly.dev'
 
 // Fallback data for when API calls fail
 const FALLBACK_PROBLEM: Problem = {
