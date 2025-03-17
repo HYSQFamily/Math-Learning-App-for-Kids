@@ -157,13 +157,19 @@ function App() {
   // Handle login
   const handleLogin = async (username: string, gradeLevel: number) => {
     dispatch({ type: 'LOGIN_START' })
+    console.log('Starting login process for user:', username);
     
     try {
+      console.log('Attempting to create user...');
       const user = await api.createUser(username, gradeLevel)
+      console.log('User created/retrieved successfully:', user);
+      
       let progress = null
       
       try {
+        console.log('Fetching user progress...');
         progress = await api.getUserProgress(user.id)
+        console.log('User progress fetched successfully:', progress);
       } catch (progressError) {
         console.warn('Failed to get user progress, using fallback:', progressError)
         // Use fallback progress data
@@ -173,17 +179,23 @@ function App() {
           mastery_levels: {},
           achievements: []
         }
+        console.log('Using fallback progress data:', progress);
       }
       
+      console.log('Dispatching LOGIN_SUCCESS action');
       dispatch({
         type: 'LOGIN_SUCCESS',
         payload: { user, progress }
       })
       
       // Load the first problem after login
+      console.log('Fetching first problem...');
       fetchNextProblem()
     } catch (error: any) {
       console.error('登录失败:', error)
+      
+      // Always log the full error object for debugging
+      console.error('Full error object:', JSON.stringify(error, Object.getOwnPropertyNames(error)));
       
       if (error.message && (
         error.message.includes('NetworkError') || 
@@ -191,6 +203,7 @@ function App() {
         error.message.includes('Network request failed') ||
         error.message.includes('CORS')
       )) {
+        console.log('Network error detected, using fallback login');
         // Use fallback user data for offline mode
         const fallbackUser = {
           id: localStorage.getItem('client_id') || crypto.randomUUID(),
@@ -207,14 +220,17 @@ function App() {
           achievements: []
         }
         
+        console.log('Dispatching LOGIN_SUCCESS action with fallback data');
         dispatch({
           type: 'LOGIN_SUCCESS',
           payload: { user: fallbackUser, progress: fallbackProgress }
         })
         
         // Load the first problem after login
+        console.log('Fetching first problem with fallback...');
         fetchNextProblem()
       } else {
+        console.log('Dispatching LOGIN_FAILURE action');
         dispatch({
           type: 'LOGIN_FAILURE',
           payload: error.message || '登录失败，请重试'

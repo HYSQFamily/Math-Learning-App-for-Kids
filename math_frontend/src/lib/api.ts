@@ -1,10 +1,26 @@
 import { Problem, SubmitAnswerResponse, TutorResponse, User, Progress } from '../types'
 import { fallbackProblems, fallbackUser, fallbackProgress, fallbackAttemptResult, fallbackTutorResponse } from './fallbackData'
 
-// API base URL - use environment variable or default to production URLs
-const API_BASE_URL = import.meta.env.VITE_API_URL || 
-                    'https://math-learning-app-backend.fly.dev' || 
-                    'https://math-learning-app-backend-nbpuekjl.fly.dev'
+// Define multiple API endpoints to try in order
+const API_ENDPOINTS = [
+  import.meta.env.VITE_API_URL,
+  'https://math-learning-app-backend.fly.dev',
+  'https://math-learning-app-backend-nbpuekjl.fly.dev'
+].filter(Boolean); // Remove any undefined/empty values
+
+// Start with the first endpoint
+let API_BASE_URL = API_ENDPOINTS[0];
+
+// Function to try the next available API endpoint
+const tryNextEndpoint = () => {
+  const currentIndex = API_ENDPOINTS.indexOf(API_BASE_URL);
+  if (currentIndex < API_ENDPOINTS.length - 1) {
+    API_BASE_URL = API_ENDPOINTS[currentIndex + 1];
+    console.log(`Switching to next API endpoint: ${API_BASE_URL}`);
+    return true;
+  }
+  return false; // No more endpoints to try
+};
 
 // Helper function to handle API errors
 const handleApiError = (error: any, fallbackMessage: string): never => {
@@ -26,7 +42,7 @@ const handleApiError = (error: any, fallbackMessage: string): never => {
 // API client
 export const api = {
   // Create or get a user
-  async createUser(username: string, gradeLevel: number): Promise<User> {
+  async createUser(username: string, gradeLevel: number, retryCount = 0): Promise<User> {
     try {
       // Get client ID from localStorage or generate a new one
       let clientId = localStorage.getItem('client_id')
@@ -35,31 +51,45 @@ export const api = {
         localStorage.setItem('client_id', clientId)
       }
       
-      const response = await fetch(`${API_BASE_URL}/users`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'X-Client-ID': clientId
-        },
-        body: JSON.stringify({
-          username,
-          grade_level: gradeLevel
-        })
-      })
+      console.log(`Attempting to create user with API endpoint: ${API_BASE_URL}`);
       
-      if (!response.ok) {
-        // If we get a 409 (conflict), the user already exists, try to get it
-        if (response.status === 409) {
-          return await this.getUser(clientId)
+      try {
+        const response = await fetch(`${API_BASE_URL}/users`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'X-Client-ID': clientId
+          },
+          body: JSON.stringify({
+            username,
+            grade_level: gradeLevel
+          })
+        })
+        
+        if (!response.ok) {
+          // If we get a 409 (conflict), the user already exists, try to get it
+          if (response.status === 409) {
+            return await this.getUser(clientId)
+          }
+          
+          const errorData = await response.json().catch(() => ({}))
+          throw new Error(errorData.detail || `创建用户失败: ${response.status}`)
         }
         
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || `创建用户失败: ${response.status}`)
+        return await response.json()
+      } catch (error: any) {
+        // If network error and we have more endpoints to try
+        if ((error instanceof TypeError || error.message.includes('Failed to fetch')) && 
+            retryCount < API_ENDPOINTS.length - 1 && tryNextEndpoint()) {
+          console.log(`Network error, retrying with next endpoint: ${API_BASE_URL}`);
+          return this.createUser(username, gradeLevel, retryCount + 1);
+        }
+        
+        // If all endpoints failed or it's not a network error
+        throw error;
       }
-      
-      return await response.json()
     } catch (error: any) {
-      console.warn('Error creating user, using fallback:', error)
+      console.warn('All API endpoints failed, using fallback:', error)
       // Return fallback user data
       return {
         ...fallbackUser,
