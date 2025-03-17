@@ -1,28 +1,16 @@
-import * as React from "react"
-import { useReducer, useEffect, useRef, useState } from "react"
-import type { Problem } from "./types"
-import { TutorChat } from "./components/TutorChat"
-import { Button } from "./components/ui/button"
-import { api } from "./lib/api"
-import { isValidNumber } from "./lib/utils"
-import { fallbackProblems } from "./lib/fallbackData"
-import type { User } from "./lib/api"
+import { useReducer, useEffect, useState } from 'react'
+import { Login } from './components/Login'
+import { ProblemDisplay } from './components/ProblemDisplay'
+import { UserProfile } from './components/UserProfile'
+import { TutorChat } from './components/TutorChat'
+import { api } from './lib/api'
+import { Problem, User, Progress } from './types'
+import { isValidNumber } from './lib/utils'
 
-// Add React to global scope for JSX
-declare global {
-  interface Window {
-    React: typeof React
-  }
-}
-window.React = React
-
-// Initial state for the reducer
+// Define application state
 interface AppState {
-  user: {
-    id: string
-    username: string
-    points: number
-  } | null
+  user: User | null
+  progress: Progress | null
   problem: Problem | null
   answer: string
   isSubmitting: boolean
@@ -30,374 +18,359 @@ interface AppState {
   isLoading: boolean
   error: string | null
   showTutor: boolean
-  isTransitioning: boolean
+  showLogin: boolean
 }
 
+// Define action types
+type AppAction =
+  | { type: 'LOGIN_START' }
+  | { type: 'LOGIN_SUCCESS'; payload: { user: User; progress: Progress } }
+  | { type: 'LOGIN_FAILURE'; payload: string }
+  | { type: 'LOAD_PROBLEM_START' }
+  | { type: 'LOAD_PROBLEM_SUCCESS'; payload: Problem }
+  | { type: 'LOAD_PROBLEM_FAILURE'; payload: string }
+  | { type: 'UPDATE_ANSWER'; payload: string }
+  | { type: 'SUBMIT_ANSWER_START' }
+  | { type: 'SUBMIT_ANSWER_SUCCESS'; payload: { isCorrect: boolean } }
+  | { type: 'SUBMIT_ANSWER_FAILURE'; payload: string }
+  | { type: 'NEXT_PROBLEM' }
+  | { type: 'TOGGLE_TUTOR' }
+  | { type: 'SET_ERROR'; payload: string }
+  | { type: 'CLEAR_ERROR' }
+
+// Initial state
 const initialState: AppState = {
   user: null,
+  progress: null,
   problem: null,
-  answer: "",
+  answer: '',
   isSubmitting: false,
   isCorrect: null,
   isLoading: false,
   error: null,
   showTutor: false,
-  isTransitioning: false
+  showLogin: true
 }
 
-// Action types for the reducer
-type AppAction =
-  | { type: "SET_USER"; payload: { id: string; username: string; points: number } }
-  | { type: "NEXT_PROBLEM_START" }
-  | { type: "NEXT_PROBLEM_SUCCESS"; payload: { problem: Problem } }
-  | { type: "NEXT_PROBLEM_FAILURE"; payload: string }
-  | { type: "SET_ANSWER"; payload: string }
-  | { type: "SUBMIT_ANSWER_START" }
-  | { type: "SUBMIT_ANSWER_SUCCESS"; payload: { isCorrect: boolean } }
-  | { type: "SUBMIT_ANSWER_FAILURE"; payload: string }
-  | { type: "TOGGLE_TUTOR" }
-  | { type: "SET_ERROR"; payload: string }
-  | { type: "CLEAR_ERROR" }
-  | { type: "TRANSITION_START" }
-  | { type: "TRANSITION_COMPLETE" }
-
-// Reducer function to handle state updates
+// Reducer function
 function reducer(state: AppState, action: AppAction): AppState {
+  console.log('Reducer action:', action.type, action)
+  
   switch (action.type) {
-    case "SET_USER":
-      return {
-        ...state,
-        user: action.payload
-      }
-    case "NEXT_PROBLEM_START":
+    case 'LOGIN_START':
       return {
         ...state,
         isLoading: true,
-        error: null,
-        isTransitioning: true
-      }
-    case "NEXT_PROBLEM_SUCCESS":
-      return {
-        ...state,
-        problem: action.payload.problem,
-        answer: "",
-        isCorrect: null,
-        isLoading: false,
         error: null
       }
-    case "NEXT_PROBLEM_FAILURE":
+    case 'LOGIN_SUCCESS':
+      return {
+        ...state,
+        user: action.payload.user,
+        progress: action.payload.progress,
+        isLoading: false,
+        showLogin: false,
+        error: null
+      }
+    case 'LOGIN_FAILURE':
       return {
         ...state,
         isLoading: false,
-        error: action.payload,
-        isTransitioning: false
+        error: action.payload
       }
-    case "SET_ANSWER":
+    case 'LOAD_PROBLEM_START':
+      return {
+        ...state,
+        isLoading: true,
+        error: null
+      }
+    case 'LOAD_PROBLEM_SUCCESS':
+      return {
+        ...state,
+        problem: action.payload,
+        isLoading: false,
+        answer: '',
+        isCorrect: null,
+        error: null
+      }
+    case 'LOAD_PROBLEM_FAILURE':
+      return {
+        ...state,
+        isLoading: false,
+        error: action.payload
+      }
+    case 'UPDATE_ANSWER':
       return {
         ...state,
         answer: action.payload
       }
-    case "SUBMIT_ANSWER_START":
+    case 'SUBMIT_ANSWER_START':
       return {
         ...state,
         isSubmitting: true,
         error: null
       }
-    case "SUBMIT_ANSWER_SUCCESS":
+    case 'SUBMIT_ANSWER_SUCCESS':
       return {
         ...state,
         isSubmitting: false,
         isCorrect: action.payload.isCorrect,
         error: null
       }
-    case "SUBMIT_ANSWER_FAILURE":
+    case 'SUBMIT_ANSWER_FAILURE':
       return {
         ...state,
         isSubmitting: false,
         error: action.payload
       }
-    case "TOGGLE_TUTOR":
+    case 'NEXT_PROBLEM':
+      return {
+        ...state,
+        answer: '',
+        isCorrect: null,
+        error: null
+      }
+    case 'TOGGLE_TUTOR':
       return {
         ...state,
         showTutor: !state.showTutor
       }
-    case "SET_ERROR":
+    case 'SET_ERROR':
       return {
         ...state,
-        error: action.payload,
-        isLoading: false,
-        isSubmitting: false,
-        isTransitioning: false
+        error: action.payload
       }
-    case "CLEAR_ERROR":
+    case 'CLEAR_ERROR':
       return {
         ...state,
         error: null
-      }
-    case "TRANSITION_START":
-      return {
-        ...state,
-        isTransitioning: true
-      }
-    case "TRANSITION_COMPLETE":
-      return {
-        ...state,
-        isTransitioning: false
       }
     default:
       return state
   }
 }
 
-// Main App component
-export default function App() {
+function App() {
   const [state, dispatch] = useReducer(reducer, initialState)
-  const answerInputRef = useRef<HTMLInputElement>(null)
-  const [user, setUser] = useState<User | null>(null)
-  // Using any type for progress data
-  const [userProgress, setUserProgress] = useState<any>(null)
-
-  useEffect(() => {
-    // Load user data and progress
-    const loadUserData = async () => {
-      try {
-        // Get client ID from localStorage or generate a new one
-        let clientId = localStorage.getItem('client_id')
-        if (!clientId) {
-          clientId = crypto.randomUUID()
-          localStorage.setItem('client_id', clientId)
-        }
-        
-        const userData = await api.getUser(clientId)
-        setUser(userData)
-        
-        if (userData && userData.id) {
-          const progressData = await api.getUserProgress(userData.id)
-          setUserProgress(progressData)
-        }
-      } catch (error) {
-        console.error("Error loading user data:", error)
-      }
-    }
+  const [retryCount, setRetryCount] = useState(0)
+  
+  // Handle login
+  const handleLogin = async (username: string, gradeLevel: number) => {
+    dispatch({ type: 'LOGIN_START' })
     
-    loadUserData()
-    fetchNextProblem()
-  }, [])
-
-  // Function to fetch the next problem
-  const fetchNextProblem = () => {
-    if (!state.isTransitioning) {
-      dispatch({ type: "TRANSITION_START" })
-      setTimeout(async () => {
-        try {
-          const nextProblem = await api.getNextProblem()
-          if (nextProblem) {
-            // Convert API problem to the format expected by the reducer
-            const problem: Problem = {
-              id: nextProblem.id || `problem-${Date.now()}`,
-              question: nextProblem.question || "5 + 7 = ?",
-              answer: nextProblem.answer || 0,
-              knowledge_point: nextProblem.knowledge_point || "addition",
-              related_points: nextProblem.related_points || [],
-              difficulty: nextProblem.difficulty || 1,
-              created_at: nextProblem.created_at || new Date().toISOString()
-            }
-            dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem } })
-            dispatch({ type: "TRANSITION_COMPLETE" })
-          } else {
-            // Use fallback problem if API returns null
-            const randomIndex = Math.floor(Math.random() * fallbackProblems.length)
-            const fallbackProblem = fallbackProblems[randomIndex]
-            dispatch({ 
-              type: "NEXT_PROBLEM_SUCCESS", 
-              payload: { problem: fallbackProblem } 
-            })
-            dispatch({ type: "TRANSITION_COMPLETE" })
-          }
-        } catch (error: any) {
-          console.error("获取题目失败:", error)
-          // Use fallback problem on error
-          const randomIndex = Math.floor(Math.random() * fallbackProblems.length)
-          const fallbackProblem = fallbackProblems[randomIndex]
-          dispatch({ 
-            type: "NEXT_PROBLEM_SUCCESS", 
-            payload: { problem: fallbackProblem } 
-          })
-          dispatch({ type: "TRANSITION_COMPLETE" })
-        }
-      }, 500)
-    }
-  }
-
-  // Function to handle answer submission
-  const handleSubmit = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!state.problem || state.isSubmitting || !isValidNumber(state.answer)) return
-
-    dispatch({ type: "SUBMIT_ANSWER_START" })
     try {
-      const result = await api.submitAnswer(state.problem.id, parseFloat(state.answer))
-      dispatch({ type: "SUBMIT_ANSWER_SUCCESS", payload: { isCorrect: result.is_correct } })
+      const user = await api.createUser(username, gradeLevel)
+      const progress = await api.getUserProgress(user.id)
+      
+      dispatch({
+        type: 'LOGIN_SUCCESS',
+        payload: { user, progress }
+      })
+      
+      // Load the first problem after login
+      fetchNextProblem()
     } catch (error: any) {
-      console.error("提交答案失败:", error)
-      dispatch({ type: "SUBMIT_ANSWER_FAILURE", payload: error.message || "提交答案失败，请重试" })
-    }
-  }
-
-  // Function to handle next problem button click
-  const handleNextProblem = async () => {
-    try {
-      dispatch({ type: "NEXT_PROBLEM_START" })
-      const nextProblem = await api.getNextProblem()
-      // Convert API problem to the format expected by the reducer
-      const problem: Problem = {
-        id: nextProblem.id || `problem-${Date.now()}`,
-        question: nextProblem.question || "5 + 7 = ?",
-        answer: nextProblem.answer || 0,
-        knowledge_point: nextProblem.knowledge_point || "addition",
-        related_points: nextProblem.related_points || [],
-        difficulty: nextProblem.difficulty || 1,
-        created_at: nextProblem.created_at || new Date().toISOString()
-      }
-      dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem } })
-    } catch (error: any) {
-      console.error("获取题目失败:", error)
-      // Use fallback problem on error
-      const randomIndex = Math.floor(Math.random() * fallbackProblems.length)
-      const fallbackProblem = fallbackProblems[randomIndex]
-      dispatch({ 
-        type: "NEXT_PROBLEM_SUCCESS", 
-        payload: { problem: fallbackProblem } 
+      console.error('登录失败:', error)
+      dispatch({
+        type: 'LOGIN_FAILURE',
+        payload: error.message || '登录失败，请重试'
       })
     }
   }
-
-  // Function to handle answer input change
+  
+  // Fetch the next problem
+  const fetchNextProblem = async (topic?: string) => {
+    dispatch({ type: 'LOAD_PROBLEM_START' })
+    
+    try {
+      // Add timestamp to ensure we get a new problem
+      const timestamp = Date.now()
+      
+      // If no topic is provided, randomly select one
+      const topics = ['addition', 'subtraction', 'multiplication', 'division']
+      const randomTopic = topics[Math.floor(Math.random() * topics.length)]
+      
+      const problem = await api.getNextProblem(topic || randomTopic, timestamp)
+      
+      dispatch({
+        type: 'LOAD_PROBLEM_SUCCESS',
+        payload: problem
+      })
+    } catch (error: any) {
+      console.error('获取题目失败:', error)
+      
+      // Retry up to 3 times with exponential backoff
+      if (retryCount < 3) {
+        const delay = Math.pow(2, retryCount) * 1000
+        console.log(`Retrying in ${delay}ms (attempt ${retryCount + 1}/3)`)
+        
+        setTimeout(() => {
+          setRetryCount(retryCount + 1)
+          fetchNextProblem()
+        }, delay)
+      } else {
+        dispatch({
+          type: 'LOAD_PROBLEM_FAILURE',
+          payload: error.message || '获取题目失败，请重试'
+        })
+        setRetryCount(0)
+      }
+    }
+  }
+  
+  // Handle next problem button click
+  const handleNextProblem = () => {
+    dispatch({ type: 'NEXT_PROBLEM' })
+    fetchNextProblem()
+  }
+  
+  // Handle answer change
   const handleAnswerChange = (e: React.ChangeEvent<HTMLInputElement>) => {
-    dispatch({ type: "SET_ANSWER", payload: e.target.value })
+    dispatch({
+      type: 'UPDATE_ANSWER',
+      payload: e.target.value
+    })
   }
-
-  // Function to toggle tutor visibility
+  
+  // Handle answer submission
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    if (!state.problem || state.isSubmitting || !isValidNumber(state.answer)) return
+    
+    dispatch({ type: 'SUBMIT_ANSWER_START' })
+    
+    try {
+      // Get client ID from localStorage or generate a new one
+      let clientId = localStorage.getItem('client_id')
+      if (!clientId) {
+        clientId = crypto.randomUUID()
+        localStorage.setItem('client_id', clientId)
+      }
+      
+      const result = await api.submitAnswer(
+        state.user?.id || clientId,
+        state.problem.id,
+        parseFloat(state.answer)
+      )
+      
+      dispatch({
+        type: 'SUBMIT_ANSWER_SUCCESS',
+        payload: { isCorrect: result.is_correct }
+      })
+    } catch (error: any) {
+      console.error('提交答案失败:', error)
+      dispatch({
+        type: 'SUBMIT_ANSWER_FAILURE',
+        payload: error.message || '提交答案失败，请重试'
+      })
+    }
+  }
+  
+  // Toggle tutor visibility
   const toggleTutor = () => {
-    dispatch({ type: "TOGGLE_TUTOR" })
+    dispatch({ type: 'TOGGLE_TUTOR' })
   }
-
-  // Render the app
-  return (
-    <div className="min-h-screen bg-gray-50 py-8">
-      <div className="max-w-4xl mx-auto">
-        <div className="mb-8 flex items-center justify-between">
-          <h1 className="text-2xl font-bold text-gray-900">数学学习助手</h1>
-          <div className="flex items-center gap-4">
-            {user && (
-              <div className="text-sm bg-blue-50 px-3 py-1 rounded-full border border-blue-200">
-                {user.username} | 积分: {user.points}
-              </div>
-            )}
-            <div className="text-sm text-gray-500 bg-white/80 px-2 py-1 rounded-full border border-gray-200">
-              使用了DeepSeek AI大模型
-            </div>
+  
+  // Error boundary
+  useEffect(() => {
+    const handleError = (event: ErrorEvent) => {
+      console.error('Global error caught:', event.error)
+      dispatch({
+        type: 'SET_ERROR',
+        payload: '应用程序遇到了问题，请刷新页面重试'
+      })
+    }
+    
+    window.addEventListener('error', handleError)
+    
+    return () => {
+      window.removeEventListener('error', handleError)
+    }
+  }, [])
+  
+  // If there's an error, show error message
+  if (state.error && state.error.includes('应用程序遇到了问题')) {
+    return (
+      <div className="flex flex-col items-center justify-center min-h-screen p-4 bg-gray-50">
+        <div className="w-full max-w-md p-6 bg-white rounded-lg shadow-md">
+          <h2 className="mb-4 text-xl font-bold text-center text-red-600">应用程序出错了</h2>
+          <p className="mb-4 text-center text-gray-700">
+            抱歉，应用程序遇到了问题。请刷新页面重试。
+          </p>
+          <div className="flex justify-center">
+            <button
+              onClick={() => window.location.reload()}
+              className="px-4 py-2 text-white bg-blue-600 rounded hover:bg-blue-700"
+            >
+              刷新页面
+            </button>
           </div>
         </div>
-
-        <div className="bg-white rounded-lg shadow-sm p-6 mb-6">
-          {state.error && (
-            <div className="bg-red-50 border border-red-200 text-red-700 px-4 py-3 rounded-md mb-4 flex items-center">
-              <span className="mr-2">⚠️</span>
-              {state.error}
-            </div>
+      </div>
+    )
+  }
+  
+  return (
+    <div className="flex flex-col min-h-screen bg-gray-50">
+      <header className="bg-blue-600 text-white p-4 shadow-md">
+        <div className="container mx-auto flex justify-between items-center">
+          <h1 className="text-2xl font-bold">数学学习助手</h1>
+          {state.user && (
+            <UserProfile user={state.user} progress={state.progress} />
           )}
-
-          {state.isLoading ? (
-            <div className="py-8 text-center">
-              <div className="inline-block animate-spin rounded-full h-8 w-8 border-b-2 border-gray-900"></div>
-              <p className="mt-2 text-gray-600">加载中...</p>
-            </div>
-          ) : state.problem ? (
-            <div>
-              <div className="mb-6">
-                <h2 className="text-xl font-semibold mb-2">题目</h2>
-                <p className="text-lg">{state.problem.question}</p>
-              </div>
-
-              <form onSubmit={handleSubmit} className="mb-4">
-                <div className="flex items-end gap-4">
-                  <div className="flex-1">
-                    <label htmlFor="answer" className="block text-sm font-medium text-gray-700 mb-1">
-                      你的答案
-                    </label>
-                    <input
-                      type="text"
-                      id="answer"
-                      ref={answerInputRef}
-                      value={state.answer}
-                      onChange={handleAnswerChange}
-                      className="w-full px-4 py-2 border border-gray-300 rounded-md focus:outline-none focus:ring-2 focus:ring-blue-500"
-                      placeholder="输入你的答案"
-                      disabled={state.isSubmitting || state.isCorrect !== null}
-                    />
-                  </div>
-                  <Button
-                    type="submit"
-                    className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                    disabled={state.isSubmitting || state.isCorrect !== null || !isValidNumber(state.answer)}
-                  >
-                    {state.isSubmitting ? "提交中..." : "提交答案"}
-                  </Button>
-                </div>
-              </form>
-
-              {state.isCorrect !== null && (
-                <div
-                  className={`p-4 rounded-md mb-4 ${
-                    state.isCorrect ? "bg-green-50 text-green-800" : "bg-red-50 text-red-800"
-                  }`}
-                >
-                  <p className="font-medium">
-                    {state.isCorrect ? "✅ 回答正确！" : "❌ 回答错误，正确答案是: " + state.problem.answer}
+        </div>
+      </header>
+      
+      <main className="flex-grow container mx-auto p-4">
+        {state.showLogin ? (
+          <Login onLogin={handleLogin} />
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <div className="md:col-span-2">
+              {state.problem ? (
+                <ProblemDisplay
+                  problem={state.problem}
+                  answer={state.answer}
+                  isSubmitting={state.isSubmitting}
+                  isCorrect={state.isCorrect}
+                  onAnswerChange={handleAnswerChange}
+                  onSubmit={handleSubmit}
+                  onNextProblem={handleNextProblem}
+                  onToggleTutor={toggleTutor}
+                />
+              ) : (
+                <div className="p-6 bg-white rounded-lg shadow-md">
+                  <p className="text-center text-gray-700">
+                    {state.isLoading ? '加载题目中...' : '没有可用的题目'}
                   </p>
-                  <div className="mt-4 flex justify-between">
-                    <Button
-                      onClick={handleNextProblem}
-                      className="bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-                    >
-                      下一题
-                    </Button>
-                    {!state.isCorrect && (
-                      <Button
-                        onClick={toggleTutor}
-                        className="bg-purple-600 hover:bg-purple-700 text-white px-4 py-2 rounded-md"
-                      >
-                        {state.showTutor ? "隐藏AI助手" : "请AI助手帮忙"}
-                      </Button>
-                    )}
-                  </div>
+                </div>
+              )}
+              
+              {state.error && !state.error.includes('应用程序遇到了问题') && (
+                <div className="mt-4 p-4 bg-red-100 text-red-700 rounded-lg">
+                  <p>{state.error}</p>
                 </div>
               )}
             </div>
-          ) : (
-            <div className="py-8 text-center">
-              <p className="text-gray-600">无法加载题目，请刷新页面重试</p>
-              <Button
-                onClick={fetchNextProblem}
-                className="mt-4 bg-blue-600 hover:bg-blue-700 text-white px-4 py-2 rounded-md"
-              >
-                重试
-              </Button>
-            </div>
-          )}
-        </div>
-
-        {state.showTutor && state.problem && (
-          <div className="bg-white rounded-lg shadow-sm p-6">
-            <TutorChat
-              userId={user?.id || "default-user"}
-              problem={state.problem}
-              userAnswer={parseFloat(state.answer)}
-            />
+            
+            {state.showTutor && state.problem && (
+              <div className="md:col-span-1">
+                <TutorChat
+                  userId={state.user?.id || 'guest'}
+                  problem={state.problem}
+                  userAnswer={state.answer ? parseFloat(state.answer) : undefined}
+                />
+              </div>
+            )}
           </div>
         )}
-      </div>
+      </main>
+      
+      <footer className="bg-gray-200 p-4 text-center text-gray-600">
+        <p>© 2025 数学学习助手 - 让学习更有趣</p>
+      </footer>
     </div>
   )
 }
+
+export default App
