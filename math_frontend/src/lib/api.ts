@@ -100,12 +100,13 @@ export const api = {
   },
   
   // Problem management
-  async getNextProblem(topic?: string): Promise<Problem> {
+  async getNextProblem(topic?: string, timestamp?: number): Promise<Problem> {
     try {
       // First try to get a problem from the generator endpoint
       try {
         const topicParam = topic ? `&topic=${topic}` : '';
-        const genResponse = await fetch(`${API_BASE_URL}/generator/generate?grade_level=3&service=replicate${topicParam}&timestamp=${Date.now()}`, {
+        const timeParam = timestamp ? `&timestamp=${timestamp}` : `&timestamp=${Date.now()}`;
+        const genResponse = await fetch(`${API_BASE_URL}/generator/generate?grade_level=3&service=replicate${topicParam}${timeParam}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

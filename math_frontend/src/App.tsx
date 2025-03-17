@@ -191,24 +191,36 @@ export default function App() {
       dispatch({ type: "TRANSITION_START" })
       setTimeout(async () => {
         try {
-          const nextProblem = await api.getNextProblem()
+          // Add variety by selecting a random topic
+          const topics = ["addition", "subtraction", "multiplication", "division"];
+          const randomTopic = topics[Math.floor(Math.random() * topics.length)];
+          
+          // Add timestamp to prevent caching
+          const timestamp = Date.now();
+          
+          const nextProblem = await api.getNextProblem(randomTopic, timestamp)
           if (nextProblem) {
             // Convert API problem to the format expected by the reducer
             const problem: Problem = {
-              id: nextProblem.id || `problem-${Date.now()}`,
+              id: nextProblem.id || `problem-${timestamp}`,
               question: nextProblem.question || "5 + 7 = ?",
               answer: nextProblem.answer || 0,
-              knowledge_point: nextProblem.knowledge_point || "addition",
+              knowledge_point: nextProblem.knowledge_point || randomTopic,
               related_points: nextProblem.related_points || [],
               difficulty: nextProblem.difficulty || 1,
-              created_at: nextProblem.created_at || new Date().toISOString()
+              created_at: nextProblem.created_at || new Date().toISOString(),
+              hints: nextProblem.hints || []
             }
             dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem } })
             dispatch({ type: "TRANSITION_COMPLETE" })
           } else {
             // Use fallback problem if API returns null
-            const randomIndex = Math.floor(Math.random() * fallbackProblems.length)
-            const fallbackProblem = fallbackProblems[randomIndex]
+            let randomIndex;
+            do {
+              randomIndex = Math.floor(Math.random() * fallbackProblems.length);
+            } while (state.problem && fallbackProblems[randomIndex].id === state.problem.id && fallbackProblems.length > 1);
+            
+            const fallbackProblem = fallbackProblems[randomIndex];
             dispatch({ 
               type: "NEXT_PROBLEM_SUCCESS", 
               payload: { problem: fallbackProblem } 
@@ -218,8 +230,12 @@ export default function App() {
         } catch (error: any) {
           console.error("获取题目失败:", error)
           // Use fallback problem on error
-          const randomIndex = Math.floor(Math.random() * fallbackProblems.length)
-          const fallbackProblem = fallbackProblems[randomIndex]
+          let randomIndex;
+          do {
+            randomIndex = Math.floor(Math.random() * fallbackProblems.length);
+          } while (state.problem && fallbackProblems[randomIndex].id === state.problem.id && fallbackProblems.length > 1);
+          
+          const fallbackProblem = fallbackProblems[randomIndex];
           dispatch({ 
             type: "NEXT_PROBLEM_SUCCESS", 
             payload: { problem: fallbackProblem } 
@@ -256,23 +272,36 @@ export default function App() {
   const handleNextProblem = async () => {
     try {
       dispatch({ type: "NEXT_PROBLEM_START" })
-      const nextProblem = await api.getNextProblem()
+      
+      // Add variety by selecting a random topic
+      const topics = ["addition", "subtraction", "multiplication", "division"];
+      const randomTopic = topics[Math.floor(Math.random() * topics.length)];
+      
+      // Add timestamp to prevent caching
+      const timestamp = Date.now();
+      
+      const nextProblem = await api.getNextProblem(randomTopic, timestamp)
       // Convert API problem to the format expected by the reducer
       const problem: Problem = {
-        id: nextProblem.id || `problem-${Date.now()}`,
+        id: nextProblem.id || `problem-${timestamp}`,
         question: nextProblem.question || "5 + 7 = ?",
         answer: nextProblem.answer || 0,
-        knowledge_point: nextProblem.knowledge_point || "addition",
+        knowledge_point: nextProblem.knowledge_point || randomTopic,
         related_points: nextProblem.related_points || [],
         difficulty: nextProblem.difficulty || 1,
-        created_at: nextProblem.created_at || new Date().toISOString()
+        created_at: nextProblem.created_at || new Date().toISOString(),
+        hints: nextProblem.hints || []
       }
       dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem } })
     } catch (error: any) {
       console.error("获取题目失败:", error)
-      // Use fallback problem on error
-      const randomIndex = Math.floor(Math.random() * fallbackProblems.length)
-      const fallbackProblem = fallbackProblems[randomIndex]
+      // Use fallback problem on error - ensure it's different from current problem
+      let randomIndex;
+      do {
+        randomIndex = Math.floor(Math.random() * fallbackProblems.length);
+      } while (state.problem && fallbackProblems[randomIndex].id === state.problem.id && fallbackProblems.length > 1);
+      
+      const fallbackProblem = fallbackProblems[randomIndex];
       dispatch({ 
         type: "NEXT_PROBLEM_SUCCESS", 
         payload: { problem: fallbackProblem } 
