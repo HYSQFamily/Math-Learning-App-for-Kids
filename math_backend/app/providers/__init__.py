@@ -11,6 +11,7 @@ class ProblemGenerationRequest(BaseModel):
     topic: Optional[str] = None
     difficulty: Optional[int] = None
     language: str = "zh"
+    prompt_template: Optional[str] = None
 
 class Provider:
     """Base class for AI providers"""
