@@ -148,16 +148,60 @@ class ReplicateProvider(Provider):
             
             logger.info(f"Generating {difficulty_desc} {topic_desc} problem for grade {request.grade_level}")
             
-            # If no API token, return a simple problem
+            # If no API token, return a varied fallback problem
             if not self.api_token:
-                return {
-                    "question": f"{request.grade_level}年级数学题: 7 + 8 = ?",
-                    "answer": 15,
-                    "knowledge_point": "加法",
-                    "hints": ["可以先凑成10，再加剩余的数"],
-                    "difficulty": request.difficulty or 2,
-                    "type": "arithmetic"
-                }
+                # Generate a more varied fallback problem based on topic and timestamp
+                import random
+                import time
+                
+                # Use current timestamp to seed randomness
+                random.seed(int(time.time()))
+                
+                # Generate random numbers based on topic
+                if topic_desc == "subtraction":
+                    a = random.randint(10, 20)
+                    b = random.randint(1, a)
+                    return {
+                        "question": f"{request.grade_level}年级数学题: {a} - {b} = ?",
+                        "answer": a - b,
+                        "knowledge_point": "减法",
+                        "hints": ["可以从大数开始，往回数小数个数"],
+                        "difficulty": request.difficulty or 2,
+                        "type": "arithmetic"
+                    }
+                elif topic_desc == "multiplication":
+                    a = random.randint(2, 9)
+                    b = random.randint(2, 9)
+                    return {
+                        "question": f"{request.grade_level}年级数学题: {a} × {b} = ?",
+                        "answer": a * b,
+                        "knowledge_point": "乘法",
+                        "hints": [f"可以想象成{a}个{b}相加"],
+                        "difficulty": request.difficulty or 2,
+                        "type": "arithmetic"
+                    }
+                elif topic_desc == "division":
+                    b = random.randint(2, 9)
+                    a = b * random.randint(1, 9)
+                    return {
+                        "question": f"{request.grade_level}年级数学题: {a} ÷ {b} = ?",
+                        "answer": a / b,
+                        "knowledge_point": "除法",
+                        "hints": [f"想一想{a}可以平均分成{b}份，每份是多少"],
+                        "difficulty": request.difficulty or 2,
+                        "type": "arithmetic"
+                    }
+                else:  # default to addition
+                    a = random.randint(1, 20)
+                    b = random.randint(1, 20)
+                    return {
+                        "question": f"{request.grade_level}年级数学题: {a} + {b} = ?",
+                        "answer": a + b,
+                        "knowledge_point": "加法",
+                        "hints": ["可以先凑成10，再加剩余的数"],
+                        "difficulty": request.difficulty or 2,
+                        "type": "arithmetic"
+                    }
             
             # Set API token
             os.environ["REPLICATE_API_TOKEN"] = self.api_token
@@ -222,12 +266,58 @@ class ReplicateProvider(Provider):
             
         except Exception as e:
             logger.error(f"Error generating problem with Claude 3.7: {str(e)}")
-            # Return a fallback problem
-            return {
-                "question": f"{request.grade_level}年级数学题: 7 + 8 = ?",
-                "answer": 15,
-                "knowledge_point": "加法",
-                "hints": ["可以先凑成10，再加剩余的数"],
-                "difficulty": request.difficulty or 2,
-                "type": "arithmetic"
-            }
+            # Return a varied fallback problem
+            import random
+            import time
+            
+            # Use current timestamp to seed randomness
+            random.seed(int(time.time()))
+            
+            # Generate random problem based on a random topic
+            topics = ["addition", "subtraction", "multiplication", "division"]
+            random_topic = topics[random.randint(0, len(topics) - 1)]
+            
+            if random_topic == "subtraction":
+                a = random.randint(10, 20)
+                b = random.randint(1, a)
+                return {
+                    "question": f"{request.grade_level}年级数学题: {a} - {b} = ?",
+                    "answer": a - b,
+                    "knowledge_point": "减法",
+                    "hints": ["可以从大数开始，往回数小数个数"],
+                    "difficulty": request.difficulty or 2,
+                    "type": "arithmetic"
+                }
+            elif random_topic == "multiplication":
+                a = random.randint(2, 9)
+                b = random.randint(2, 9)
+                return {
+                    "question": f"{request.grade_level}年级数学题: {a} × {b} = ?",
+                    "answer": a * b,
+                    "knowledge_point": "乘法",
+                    "hints": [f"可以想象成{a}个{b}相加"],
+                    "difficulty": request.difficulty or 2,
+                    "type": "arithmetic"
+                }
+            elif random_topic == "division":
+                b = random.randint(2, 9)
+                a = b * random.randint(1, 9)
+                return {
+                    "question": f"{request.grade_level}年级数学题: {a} ÷ {b} = ?",
+                    "answer": a / b,
+                    "knowledge_point": "除法",
+                    "hints": [f"想一想{a}可以平均分成{b}份，每份是多少"],
+                    "difficulty": request.difficulty or 2,
+                    "type": "arithmetic"
+                }
+            else:  # addition
+                a = random.randint(1, 20)
+                b = random.randint(1, 20)
+                return {
+                    "question": f"{request.grade_level}年级数学题: {a} + {b} = ?",
+                    "answer": a + b,
+                    "knowledge_point": "加法",
+                    "hints": ["可以先凑成10，再加剩余的数"],
+                    "difficulty": request.difficulty or 2,
+                    "type": "arithmetic"
+                }
