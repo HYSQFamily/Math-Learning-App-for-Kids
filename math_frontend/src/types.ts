@@ -1,6 +1,9 @@
 export interface Problem {
   id: string
-  question: string
+  question: string | {
+    zh: string
+    sv: string
+  }
   answer: number
   knowledge_point: string
   related_points?: string[]

@@ -154,15 +154,16 @@ export const api = {
   },
   
   // Get the next problem
-  async getNextProblem(topic?: string, timestamp?: number): Promise<Problem> {
+  async getNextProblem(topic?: string, timestamp?: number, language: string = "sv+zh"): Promise<Problem> {
     try {
       // Add timestamp to prevent caching
       const cacheBuster = timestamp || Date.now()
       const topicParam = topic ? `&topic=${topic}` : ''
+      const languageParam = `&language=${language}`
       
       // Try the generator endpoint first
       try {
-        const response = await fetch(`${API_BASE_URL}/generator/generate?grade_level=3${topicParam}&t=${cacheBuster}`)
+        const response = await fetch(`${API_BASE_URL}/generator/generate?grade_level=3${topicParam}${languageParam}&t=${cacheBuster}`)
         
         if (response.ok) {
           const problem = await response.json()
