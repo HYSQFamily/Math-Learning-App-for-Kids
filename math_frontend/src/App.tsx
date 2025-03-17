@@ -277,22 +277,48 @@ export default function App() {
       const topics = ["addition", "subtraction", "multiplication", "division"];
       const randomTopic = topics[Math.floor(Math.random() * topics.length)];
       
-      // Add timestamp to prevent caching
+      // Add timestamp to prevent caching and ensure unique problems
       const timestamp = Date.now();
       
-      const nextProblem = await api.getNextProblem(randomTopic, timestamp)
-      // Convert API problem to the format expected by the reducer
-      const problem: Problem = {
-        id: nextProblem.id || `problem-${timestamp}`,
-        question: nextProblem.question || "5 + 7 = ?",
-        answer: nextProblem.answer || 0,
-        knowledge_point: nextProblem.knowledge_point || randomTopic,
-        related_points: nextProblem.related_points || [],
-        difficulty: nextProblem.difficulty || 1,
-        created_at: nextProblem.created_at || new Date().toISOString(),
-        hints: nextProblem.hints || []
+      // Set a timeout to handle slow backend responses
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error("请求超时，使用备用题目")), 5000)
+      );
+      
+      // Race between the API call and the timeout
+      const nextProblemPromise = api.getNextProblem(randomTopic, timestamp);
+      const nextProblem = await Promise.race([nextProblemPromise, timeoutPromise])
+        .catch(error => {
+          console.warn("Problem fetch timed out or failed:", error);
+          return null;
+        });
+      
+      if (nextProblem) {
+        // Convert API problem to the format expected by the reducer
+        const problem: Problem = {
+          id: nextProblem?.id || `problem-${timestamp}`,
+          question: nextProblem?.question || "5 + 7 = ?",
+          answer: nextProblem?.answer || 0,
+          knowledge_point: nextProblem?.knowledge_point || randomTopic,
+          related_points: nextProblem?.related_points || [],
+          difficulty: nextProblem?.difficulty || 1,
+          created_at: nextProblem?.created_at || new Date().toISOString(),
+          hints: nextProblem?.hints || []
+        }
+        dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem } })
+      } else {
+        // Use fallback problem if API returns null or times out
+        let randomIndex;
+        do {
+          randomIndex = Math.floor(Math.random() * fallbackProblems.length);
+        } while (state.problem && fallbackProblems[randomIndex].id === state.problem.id && fallbackProblems.length > 1);
+        
+        const fallbackProblem = fallbackProblems[randomIndex];
+        dispatch({ 
+          type: "NEXT_PROBLEM_SUCCESS", 
+          payload: { problem: fallbackProblem } 
+        })
       }
-      dispatch({ type: "NEXT_PROBLEM_SUCCESS", payload: { problem } })
     } catch (error: any) {
       console.error("获取题目失败:", error)
       // Use fallback problem on error - ensure it's different from current problem
