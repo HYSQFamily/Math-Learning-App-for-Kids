@@ -21,6 +21,22 @@ export function Login({ onLogin }: LoginProps) {
     setIsSubmitting(true)
     setError(null)
     
+    // Set a timeout to prevent getting stuck indefinitely
+    const loginTimeout = setTimeout(() => {
+      if (isSubmitting) {
+        console.warn('Login timeout reached, forcing fallback mode');
+        setError('登录超时，正在使用离线模式');
+        
+        // Force fallback login
+        const clientId = localStorage.getItem('client_id') || crypto.randomUUID();
+        localStorage.setItem('client_id', clientId);
+        
+        onLogin(username, gradeLevel).catch(e => {
+          console.error("Fallback login failed:", e);
+        });
+      }
+    }, 10000); // 10 second timeout
+    
     try {
       // Get or create client ID
       let clientId = localStorage.getItem('client_id')
@@ -51,6 +67,7 @@ export function Login({ onLogin }: LoginProps) {
         setError(error.message || '登录失败，请重试')
       }
     } finally {
+      clearTimeout(loginTimeout);
       setIsSubmitting(false)
     }
   }
