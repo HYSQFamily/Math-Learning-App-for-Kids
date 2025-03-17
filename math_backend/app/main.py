@@ -36,15 +36,16 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "https://math-learning-app-qt3bvm4s.devinapps.com",
+        "https://math-learning-app-frontend.fly.dev",
         "https://math-learning-app-backend.fly.dev",
-        "https://math-learning-app-backend-nbpuekjl.fly.dev",
         "http://localhost:5173",
         "http://localhost:3000",
         "*"  # Temporarily allow all origins for testing
     ],
     allow_credentials=True,
-    allow_methods=["*"],  # Allow all methods
+    allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],  # Allow all headers
+    expose_headers=["*"],  # Expose all headers
 )
 
 app.include_router(problems_router, prefix="/problems", tags=["problems"])
