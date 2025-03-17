@@ -160,7 +160,20 @@ function App() {
     
     try {
       const user = await api.createUser(username, gradeLevel)
-      const progress = await api.getUserProgress(user.id)
+      let progress = null
+      
+      try {
+        progress = await api.getUserProgress(user.id)
+      } catch (progressError) {
+        console.warn('Failed to get user progress, using fallback:', progressError)
+        // Use fallback progress data
+        progress = {
+          points: 0,
+          streak_days: 0,
+          mastery_levels: {},
+          achievements: []
+        }
+      }
       
       dispatch({
         type: 'LOGIN_SUCCESS',
@@ -171,10 +184,42 @@ function App() {
       fetchNextProblem()
     } catch (error: any) {
       console.error('登录失败:', error)
-      dispatch({
-        type: 'LOGIN_FAILURE',
-        payload: error.message || '登录失败，请重试'
-      })
+      
+      if (error.message && (
+        error.message.includes('NetworkError') || 
+        error.message.includes('Failed to fetch') ||
+        error.message.includes('Network request failed') ||
+        error.message.includes('CORS')
+      )) {
+        // Use fallback user data for offline mode
+        const fallbackUser = {
+          id: localStorage.getItem('client_id') || crypto.randomUUID(),
+          username: username || 'Guest',
+          grade_level: gradeLevel || 3,
+          points: 0,
+          streak_days: 0
+        }
+        
+        const fallbackProgress = {
+          points: 0,
+          streak_days: 0,
+          mastery_levels: {},
+          achievements: []
+        }
+        
+        dispatch({
+          type: 'LOGIN_SUCCESS',
+          payload: { user: fallbackUser, progress: fallbackProgress }
+        })
+        
+        // Load the first problem after login
+        fetchNextProblem()
+      } else {
+        dispatch({
+          type: 'LOGIN_FAILURE',
+          payload: error.message || '登录失败，请重试'
+        })
+      }
     }
   }
   

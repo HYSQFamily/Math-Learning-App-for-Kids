@@ -38,6 +38,7 @@ app.add_middleware(
         "https://math-learning-app-qt3bvm4s.devinapps.com",
         "https://math-learning-app-frontend.fly.dev",
         "https://math-learning-app-backend.fly.dev",
+        "https://math-learning-app-backend-nbpuekjl.fly.dev",
         "http://localhost:5173",
         "http://localhost:3000",
         "*"  # Temporarily allow all origins for testing
@@ -46,6 +47,7 @@ app.add_middleware(
     allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
     allow_headers=["*"],  # Allow all headers
     expose_headers=["*"],  # Expose all headers
+    max_age=86400  # Cache preflight requests for 24 hours
 )
 
 app.include_router(problems_router, prefix="/problems", tags=["problems"])
