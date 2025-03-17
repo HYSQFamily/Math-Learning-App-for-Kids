@@ -154,8 +154,9 @@ export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState)
   const answerInputRef = useRef<HTMLInputElement>(null)
   const [user, setUser] = useState<User | null>(null)
-  // Using any type for progress data
-  const [userProgress, setUserProgress] = useState<any>(null)
+  // Progress data is fetched but not currently displayed in the UI
+  // We keep this for future feature implementation
+  const [_userProgress, _setUserProgress] = useState<any>(null)
 
   useEffect(() => {
     // Load user data and progress
@@ -173,7 +174,7 @@ export default function App() {
         
         if (userData && userData.id) {
           const progressData = await api.getUserProgress(userData.id)
-          setUserProgress(progressData)
+          _setUserProgress(progressData)
         }
       } catch (error) {
         console.error("Error loading user data:", error)
@@ -236,7 +237,14 @@ export default function App() {
 
     dispatch({ type: "SUBMIT_ANSWER_START" })
     try {
-      const result = await api.submitAnswer(state.problem.id, parseFloat(state.answer))
+      // Get client ID from localStorage or generate a new one
+      let clientId = localStorage.getItem('client_id')
+      if (!clientId) {
+        clientId = crypto.randomUUID()
+        localStorage.setItem('client_id', clientId)
+      }
+      
+      const result = await api.submitAnswer(clientId, state.problem.id, parseFloat(state.answer))
       dispatch({ type: "SUBMIT_ANSWER_SUCCESS", payload: { isCorrect: result.is_correct } })
     } catch (error: any) {
       console.error("提交答案失败:", error)

@@ -1,4 +1,5 @@
-import { Problem, SubmitAnswerResponse, TutorResponse, User, Progress } from '../types'
+import { Problem, SubmitAnswerResponse, TutorResponse } from '../types'
+// User and Progress interfaces are defined at the bottom of this file
 
 // API base URL - use the deployed backend
 const API_BASE_URL = 'https://math-learning-app-backend.fly.dev'
@@ -99,11 +100,12 @@ export const api = {
   },
   
   // Problem management
-  async getNextProblem(): Promise<Problem> {
+  async getNextProblem(topic?: string): Promise<Problem> {
     try {
       // First try to get a problem from the generator endpoint
       try {
-        const genResponse = await fetch(`${API_BASE_URL}/generator/generate?grade_level=3&service=replicate`, {
+        const topicParam = topic ? `&topic=${topic}` : '';
+        const genResponse = await fetch(`${API_BASE_URL}/generator/generate?grade_level=3&service=replicate${topicParam}&timestamp=${Date.now()}`, {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',

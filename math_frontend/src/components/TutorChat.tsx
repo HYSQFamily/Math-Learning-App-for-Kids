@@ -5,12 +5,18 @@ import type { Problem } from "../types"
 import { TutorGuidance } from "./TutorGuidance"
 
 interface TutorChatProps {
+  userId: string
   problem: Problem
+  userAnswer?: number
 }
 
-export function TutorChat({ problem }: TutorChatProps) {
+export function TutorChat({ userId, problem, userAnswer }: TutorChatProps) {
   const [showGuidance, setShowGuidance] = useState(false)
-  const [response, setResponse] = useState(`你好！我是黄小星，让我们一起来解决这道${problem.knowledge_point}的题目吧！`)
+  const [response, setResponse] = useState(
+    userAnswer !== undefined 
+      ? `你好！我是黄小星，我看到你的答案是 ${userAnswer}，让我们一起来解决这道${problem.knowledge_point}的题目吧！` 
+      : `你好！我是黄小星，让我们一起来解决这道${problem.knowledge_point}的题目吧！`
+  )
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -18,7 +24,7 @@ export function TutorChat({ problem }: TutorChatProps) {
     setIsLoading(true)
     setError(null)
     try {
-      const result = await api.askTutor("student", question, hintType)
+      const result = await api.askTutor(userId, question, hintType)
       setResponse(
         `${result.answer}${showGuidance && result.model ? `\n\n【使用模型: ${result.model}】` : ""}`
       )
