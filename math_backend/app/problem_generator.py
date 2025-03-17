@@ -17,7 +17,8 @@ async def generate_problem(
     grade_level: int = Query(3, description="Grade level (1-6)"),
     topic: Optional[str] = Query(None, description="Topic (e.g., addition, subtraction)"),
     difficulty: Optional[int] = Query(None, description="Difficulty level (1-3)"),
-    language: str = Query("zh", description="Language (zh, en)"),
+    language: str = Query("zh", description="Language (zh, sv, zh+sv)"),
+    prompt_template: Optional[str] = Query(None, description="Custom prompt template"),
     service: str = Query("replicate", description="AI service to use (replicate, deepseek, openai)")
 ):
     """Generate a new math problem using AI"""
@@ -29,7 +30,8 @@ async def generate_problem(
             grade_level=grade_level,
             topic=topic,
             difficulty=difficulty,
-            language=language
+            language=language,
+            prompt_template=prompt_template
         )
         
         # Get the appropriate provider

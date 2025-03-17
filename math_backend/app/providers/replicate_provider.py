@@ -146,7 +146,7 @@ class ReplicateProvider(Provider):
             if request.topic:
                 topic_desc = request.topic
             
-            logger.info(f"Generating {difficulty_desc} {topic_desc} problem for grade {request.grade_level}")
+            logger.info(f"Generating {difficulty_desc} {topic_desc} problem for grade {request.grade_level} in language {request.language}")
             
             # If no API token, return a varied fallback problem
             if not self.api_token:
@@ -206,19 +206,16 @@ class ReplicateProvider(Provider):
             # Set API token
             os.environ["REPLICATE_API_TOKEN"] = self.api_token
             
-            system_prompt = """你是一位小学数学老师，需要生成适合小学生的数学题目。
-            请生成一道数学题目，并按照以下JSON格式返回:
-            {
-                "question": "题目内容",
-                "answer": 数字答案,
-                "knowledge_point": "知识点",
-                "hints": ["提示1", "提示2"],
-                "difficulty": 难度等级(1-3),
-                "type": "题目类型"
-            }
+            # Import prompt templates
+            from app.config.prompt_templates import BILINGUAL_PROBLEM_TEMPLATE, CHINESE_PROBLEM_TEMPLATE
             
-            只返回JSON格式，不要有其他文字。确保answer是一个数字，不是字符串。
-            """
+            # Select system prompt based on language and custom template
+            if request.prompt_template:
+                system_prompt = request.prompt_template
+            elif request.language == "sv+zh" or request.language == "zh+sv":
+                system_prompt = BILINGUAL_PROBLEM_TEMPLATE
+            else:
+                system_prompt = CHINESE_PROBLEM_TEMPLATE
             
             # Call Replicate API
             output = ""
