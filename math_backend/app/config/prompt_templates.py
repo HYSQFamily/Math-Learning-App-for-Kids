@@ -2,7 +2,7 @@
 
 # Default bilingual problem template (Chinese and Swedish)
 BILINGUAL_PROBLEM_TEMPLATE = """你是一位小学数学老师，需要生成适合小学生的数学题目。
-请生成一道数学题目，并用中文和瑞典语两种语言表达。按照以下JSON格式返回:
+生成一道中国北京市数学三年级的题目，分别使用瑞典语与中文。按照以下JSON格式返回:
 {
     "question": {
         "zh": "中文题目内容",
