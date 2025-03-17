@@ -148,9 +148,9 @@ class ReplicateProvider(Provider):
             
             logger.info(f"Generating {difficulty_desc} {topic_desc} problem for grade {request.grade_level} in language {request.language}")
             
-            # If no API token, return a varied fallback problem
-            if not self.api_token:
-                # Generate a more varied fallback problem based on topic and timestamp
+            # If no API token or we encounter API issues, return a bilingual fallback problem
+            if not self.api_token or os.environ.get("USE_FALLBACK", "false").lower() == "true":
+                # Generate a bilingual fallback problem based on topic and timestamp
                 import random
                 import time
                 
@@ -161,8 +161,12 @@ class ReplicateProvider(Provider):
                 if topic_desc == "subtraction":
                     a = random.randint(10, 20)
                     b = random.randint(1, a)
+                    question = {
+                        "zh": f"{a} - {b} = ?",
+                        "sv": f"{a} - {b} = ?"
+                    }
                     return {
-                        "question": f"{request.grade_level}年级数学题: {a} - {b} = ?",
+                        "question": question,
                         "answer": a - b,
                         "knowledge_point": "减法",
                         "hints": ["可以从大数开始，往回数小数个数"],
@@ -172,8 +176,12 @@ class ReplicateProvider(Provider):
                 elif topic_desc == "multiplication":
                     a = random.randint(2, 9)
                     b = random.randint(2, 9)
+                    question = {
+                        "zh": f"{a} × {b} = ?",
+                        "sv": f"{a} × {b} = ?"
+                    }
                     return {
-                        "question": f"{request.grade_level}年级数学题: {a} × {b} = ?",
+                        "question": question,
                         "answer": a * b,
                         "knowledge_point": "乘法",
                         "hints": [f"可以想象成{a}个{b}相加"],
@@ -183,8 +191,12 @@ class ReplicateProvider(Provider):
                 elif topic_desc == "division":
                     b = random.randint(2, 9)
                     a = b * random.randint(1, 9)
+                    question = {
+                        "zh": f"{a} ÷ {b} = ?",
+                        "sv": f"{a} ÷ {b} = ?"
+                    }
                     return {
-                        "question": f"{request.grade_level}年级数学题: {a} ÷ {b} = ?",
+                        "question": question,
                         "answer": a / b,
                         "knowledge_point": "除法",
                         "hints": [f"想一想{a}可以平均分成{b}份，每份是多少"],
@@ -194,8 +206,12 @@ class ReplicateProvider(Provider):
                 else:  # default to addition
                     a = random.randint(1, 20)
                     b = random.randint(1, 20)
+                    question = {
+                        "zh": f"{a} + {b} = ?",
+                        "sv": f"{a} + {b} = ?"
+                    }
                     return {
-                        "question": f"{request.grade_level}年级数学题: {a} + {b} = ?",
+                        "question": question,
                         "answer": a + b,
                         "knowledge_point": "加法",
                         "hints": ["可以先凑成10，再加剩余的数"],
@@ -203,8 +219,12 @@ class ReplicateProvider(Provider):
                         "type": "arithmetic"
                     }
             
-            # Set API token
-            os.environ["REPLICATE_API_TOKEN"] = self.api_token
+            # Set API token from environment variable
+            replicate_token = os.environ.get("Replicate_API_TOKEN")
+            if replicate_token:
+                os.environ["REPLICATE_API_TOKEN"] = replicate_token
+            else:
+                os.environ["REPLICATE_API_TOKEN"] = self.api_token
             
             # Import prompt templates
             from app.config.prompt_templates import BILINGUAL_PROBLEM_TEMPLATE, CHINESE_PROBLEM_TEMPLATE
@@ -217,53 +237,67 @@ class ReplicateProvider(Provider):
             else:
                 system_prompt = CHINESE_PROBLEM_TEMPLATE
             
-            # Call Replicate API
-            output = ""
-            for event in replicate.stream(
-                self.model,
-                input={
-                    "system": system_prompt,
-                    "prompt": f"请生成一道{request.grade_level}年级的{topic_desc}数学题目，难度为{difficulty_desc}。",
-                    "temperature": 0.7,
-                    "max_tokens": 1024
-                }
-            ):
-                output += str(event)
-            
-            # Extract JSON from response
             try:
-                # Find JSON in the response
-                start_idx = output.find('{')
-                end_idx = output.rfind('}') + 1
-                if start_idx >= 0 and end_idx > start_idx:
-                    json_str = output[start_idx:end_idx]
-                    problem = json.loads(json_str)
-                    
-                    # Validate problem data
-                    if "question" not in problem or "answer" not in problem:
-                        raise ValueError("Invalid problem data: missing required fields")
-                    
-                    # Ensure answer is a number
-                    try:
-                        problem["answer"] = float(problem["answer"])
-                    except (ValueError, TypeError):
-                        problem["answer"] = 0
-                    
-                    # Ensure other fields exist
-                    problem.setdefault("knowledge_point", "基础数学")
-                    problem.setdefault("hints", ["思考一下基本的计算方法"])
-                    problem.setdefault("difficulty", request.difficulty or 2)
-                    problem.setdefault("type", "arithmetic")
-                    
-                    return problem
-                else:
-                    raise ValueError("Could not find JSON in response")
-            except json.JSONDecodeError:
-                raise ValueError("Invalid JSON in response")
+                # Call Replicate API
+                output = ""
+                for event in replicate.stream(
+                    self.model,
+                    input={
+                        "system": system_prompt,
+                        "prompt": f"请生成一道{request.grade_level}年级的{topic_desc}数学题目，难度为{difficulty_desc}。",
+                        "temperature": 0.7,
+                        "max_tokens": 1024
+                    }
+                ):
+                    output += str(event)
+                
+                # Extract JSON from response
+                try:
+                    # Find JSON in the response
+                    start_idx = output.find('{')
+                    end_idx = output.rfind('}') + 1
+                    if start_idx >= 0 and end_idx > start_idx:
+                        json_str = output[start_idx:end_idx]
+                        problem = json.loads(json_str)
+                        
+                        # Validate problem data
+                        if "question" not in problem or "answer" not in problem:
+                            raise ValueError("Invalid problem data: missing required fields")
+                        
+                        # Ensure answer is a number
+                        try:
+                            problem["answer"] = float(problem["answer"])
+                        except (ValueError, TypeError):
+                            problem["answer"] = 0
+                        
+                        # Ensure other fields exist
+                        problem.setdefault("knowledge_point", "基础数学")
+                        problem.setdefault("hints", ["思考一下基本的计算方法"])
+                        problem.setdefault("difficulty", request.difficulty or 2)
+                        problem.setdefault("type", "arithmetic")
+                        
+                        # If we're expecting bilingual but got a string, convert to bilingual format
+                        if (request.language == "sv+zh" or request.language == "zh+sv") and isinstance(problem["question"], str):
+                            problem["question"] = {
+                                "zh": problem["question"],
+                                "sv": f"Svenska: {problem['question']}"  # Placeholder
+                            }
+                        
+                        return problem
+                    else:
+                        raise ValueError("Could not find JSON in response")
+                except json.JSONDecodeError:
+                    raise ValueError("Invalid JSON in response")
+            except Exception as e:
+                logger.error(f"Error calling Replicate API: {str(e)}")
+                # Set flag to use fallback
+                os.environ["USE_FALLBACK"] = "true"
+                # Recursively call this function to use the fallback
+                return await self.generate_problem(request)
             
         except Exception as e:
             logger.error(f"Error generating problem with Claude 3.7: {str(e)}")
-            # Return a varied fallback problem
+            # Generate bilingual fallback problem
             import random
             import time
             
@@ -277,8 +311,12 @@ class ReplicateProvider(Provider):
             if random_topic == "subtraction":
                 a = random.randint(10, 20)
                 b = random.randint(1, a)
+                question = {
+                    "zh": f"{a} - {b} = ?",
+                    "sv": f"{a} - {b} = ?"
+                }
                 return {
-                    "question": f"{request.grade_level}年级数学题: {a} - {b} = ?",
+                    "question": question,
                     "answer": a - b,
                     "knowledge_point": "减法",
                     "hints": ["可以从大数开始，往回数小数个数"],
@@ -288,8 +326,12 @@ class ReplicateProvider(Provider):
             elif random_topic == "multiplication":
                 a = random.randint(2, 9)
                 b = random.randint(2, 9)
+                question = {
+                    "zh": f"{a} × {b} = ?",
+                    "sv": f"{a} × {b} = ?"
+                }
                 return {
-                    "question": f"{request.grade_level}年级数学题: {a} × {b} = ?",
+                    "question": question,
                     "answer": a * b,
                     "knowledge_point": "乘法",
                     "hints": [f"可以想象成{a}个{b}相加"],
@@ -299,8 +341,12 @@ class ReplicateProvider(Provider):
             elif random_topic == "division":
                 b = random.randint(2, 9)
                 a = b * random.randint(1, 9)
+                question = {
+                    "zh": f"{a} ÷ {b} = ?",
+                    "sv": f"{a} ÷ {b} = ?"
+                }
                 return {
-                    "question": f"{request.grade_level}年级数学题: {a} ÷ {b} = ?",
+                    "question": question,
                     "answer": a / b,
                     "knowledge_point": "除法",
                     "hints": [f"想一想{a}可以平均分成{b}份，每份是多少"],
@@ -310,8 +356,12 @@ class ReplicateProvider(Provider):
             else:  # addition
                 a = random.randint(1, 20)
                 b = random.randint(1, 20)
+                question = {
+                    "zh": f"{a} + {b} = ?",
+                    "sv": f"{a} + {b} = ?"
+                }
                 return {
-                    "question": f"{request.grade_level}年级数学题: {a} + {b} = ?",
+                    "question": question,
                     "answer": a + b,
                     "knowledge_point": "加法",
                     "hints": ["可以先凑成10，再加剩余的数"],

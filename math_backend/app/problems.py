@@ -69,45 +69,97 @@ def get_problems(type: Optional[str] = None, db: Session = Depends(get_db)):
     return problems
 
 @router.get("/next", response_model=ProblemResponse)
-def get_next_problem(x_client_id: Optional[str] = Header(None), db: Session = Depends(get_db)):
-    # Check if problems exist in the database
-    problems = db.query(Problem).all()
-    
-    # If no problems in database, create sample problems
-    if not problems:
-        for problem_data in SAMPLE_PROBLEMS:
-            problem = Problem(
-                id=problem_data["id"],
-                type=problem_data["type"],
-                question=problem_data["question"],
-                difficulty=problem_data["difficulty"],
-                hints=problem_data["hints"],
-                knowledge_point=problem_data["knowledge_point"],
-                answer=problem_data["answer"]
+async def get_next_problem(
+    user_id: Optional[str] = None,
+    topic: Optional[str] = None,
+    language: str = "sv+zh",
+    x_client_id: Optional[str] = Header(None),
+    db: Session = Depends(get_db)
+):
+    """Get the next problem for a user with bilingual support"""
+    try:
+        # Try to generate a new problem using the problem generator
+        from app.providers import ProblemGenerationRequest
+        from app.providers.provider_factory import ProviderFactory
+        from uuid import uuid4
+        import json
+        import logging
+        
+        logger = logging.getLogger(__name__)
+        
+        try:
+            # Create problem generation request
+            request = ProblemGenerationRequest(
+                grade_level=3,
+                topic=topic or "addition",
+                difficulty=2,
+                language=language,
+                prompt_template=None
             )
-            db.add(problem)
-        db.commit()
+            
+            # Get the Replicate provider
+            provider = ProviderFactory.get_provider("replicate")
+            
+            # Generate problem
+            problem_data = await provider.generate_problem(request)
+            
+            # Return the problem without saving to database
+            return {
+                "id": str(uuid4()),
+                "question": problem_data["question"],
+                "answer": float(problem_data["answer"]),
+                "difficulty": problem_data.get("difficulty", 2),
+                "hints": problem_data.get("hints", []),
+                "knowledge_point": problem_data.get("knowledge_point", "基础数学"),
+                "type": problem_data.get("type", "arithmetic"),
+                "created_at": datetime.utcnow().isoformat()
+            }
+        except Exception as e:
+            logger.error(f"Error generating problem: {str(e)}")
+            # Fall back to database problems
+            pass
+            
+        # If generation fails, get a random problem from the database
         problems = db.query(Problem).all()
-    
-    # Select a random problem
-    problem = random.choice(problems)
-    
-    # Convert hints string to list for frontend
-    hints_list = [problem.hints] if problem.hints else []
-    
-    # Create response with additional fields needed by frontend
-    response = {
-        "id": problem.id,
-        "question": problem.question,
-        "answer": problem.answer,
-        "difficulty": problem.difficulty,
-        "hints": hints_list,
-        "knowledge_point": problem.knowledge_point,
-        "type": problem.type,
-        "created_at": datetime.utcnow().isoformat()
-    }
-    
-    return response
+        
+        # If no problems in database, create sample problems
+        if not problems:
+            for problem_data in SAMPLE_PROBLEMS:
+                problem = Problem(
+                    id=problem_data["id"],
+                    type=problem_data["type"],
+                    question=problem_data["question"],
+                    difficulty=problem_data["difficulty"],
+                    hints=problem_data["hints"],
+                    knowledge_point=problem_data["knowledge_point"],
+                    answer=problem_data["answer"]
+                )
+                db.add(problem)
+            db.commit()
+            problems = db.query(Problem).all()
+        
+        # Select a random problem
+        problem = random.choice(problems)
+        
+        # Convert hints string to list for frontend
+        hints_list = [problem.hints] if problem.hints else []
+        
+        # Create response with additional fields needed by frontend
+        response = {
+            "id": problem.id,
+            "question": problem.question,
+            "answer": problem.answer,
+            "difficulty": problem.difficulty,
+            "hints": hints_list,
+            "knowledge_point": problem.knowledge_point,
+            "type": problem.type,
+            "created_at": datetime.utcnow().isoformat()
+        }
+        
+        return response
+    except Exception as e:
+        logger.error(f"Error getting next problem: {str(e)}")
+        raise HTTPException(status_code=500, detail="无法获取题目，请稍后再试")
 
 @router.get("/{problem_id}", response_model=ProblemResponse)
 def get_problem(problem_id: str, db: Session = Depends(get_db)):
