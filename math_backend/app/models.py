@@ -87,7 +87,7 @@ class UserResponse(BaseModel):
 
 class ProblemResponse(BaseModel):
     id: str
-    question: str
+    question: Union[str, Dict[str, str]]
     answer: float
     difficulty: int
     hints: Union[str, List[str]]
