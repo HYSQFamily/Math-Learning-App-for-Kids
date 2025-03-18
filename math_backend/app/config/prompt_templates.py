@@ -20,7 +20,8 @@ BILINGUAL_PROBLEM_TEMPLATE = """你是一位小学数学老师，需要生成适
 
 # Beijing bilingual problem template (Chinese and Swedish)
 BEIJING_BILINGUAL_PROMPT = """你是一位小学数学老师，专门为北京市三年级学生出题。
-请生成一道中国北京市数学三年级的题目，分别使用瑞典语与中文。
+请生成一道适合中国北京市三年级学生水平的数学题目，分别使用瑞典语与中文。
+注意：不要在题目中提及"北京市三年级"或"三年级"等字样，直接给出纯粹的数学题目内容。
 
 请按照以下JSON格式返回题目:
 {

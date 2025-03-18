@@ -33,10 +33,17 @@ async def test_beijing_bilingual_problem():
                 print(f"Swedish: {problem['question']['sv']}")
                 
                 # Check if the problem is appropriate for Beijing 3rd grade
-                if "北京" in problem['question']['zh'] or "三年级" in problem['question']['zh']:
-                    print("✅ Problem is appropriate for Beijing 3rd grade")
+                # We no longer expect "北京" or "三年级" to be in the problem text
+                # Instead, we check if it's a math problem with appropriate difficulty
+                if isinstance(problem.get("difficulty"), (int, float)) and 1 <= problem.get("difficulty", 0) <= 3:
+                    print("✅ Problem is appropriate for Beijing 3rd grade level")
+                    # Verify that "北京" and "三年级" are NOT in the problem text
+                    if "北京" not in problem['question']['zh'] and "三年级" not in problem['question']['zh']:
+                        print("✅ Problem does not mention grade level in the text")
+                    else:
+                        print("❌ Problem still mentions grade level in the text")
                 else:
-                    print("⚠️ Problem may not be specific to Beijing 3rd grade")
+                    print("⚠️ Problem may not be appropriate for Beijing 3rd grade level")
             else:
                 print("❌ Failed to generate bilingual problem")
                 print(f"Question format: {type(problem['question'])}")

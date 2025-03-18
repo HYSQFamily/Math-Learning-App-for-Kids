@@ -290,8 +290,8 @@ class ReplicateProvider(Provider):
                 a = random.randint(10, 20)
                 b = random.randint(1, a)
                 question = {
-                    "zh": f"北京市三年级数学题: {a} - {b} = ?",
-                    "sv": f"Matematikproblem för årskurs 3 i Beijing: {a} - {b} = ?"
+                    "zh": f"{a} - {b} = ?",
+                    "sv": f"{a} - {b} = ?"
                 }
                 return {
                     "question": question,
@@ -305,8 +305,8 @@ class ReplicateProvider(Provider):
                 a = random.randint(2, 9)
                 b = random.randint(2, 9)
                 question = {
-                    "zh": f"北京市三年级数学题: {a} × {b} = ?",
-                    "sv": f"Matematikproblem för årskurs 3 i Beijing: {a} × {b} = ?"
+                    "zh": f"{a} × {b} = ?",
+                    "sv": f"{a} × {b} = ?"
                 }
                 return {
                     "question": question,
@@ -320,8 +320,8 @@ class ReplicateProvider(Provider):
                 b = random.randint(2, 9)
                 a = b * random.randint(1, 9)
                 question = {
-                    "zh": f"北京市三年级数学题: {a} ÷ {b} = ?",
-                    "sv": f"Matematikproblem för årskurs 3 i Beijing: {a} ÷ {b} = ?"
+                    "zh": f"{a} ÷ {b} = ?",
+                    "sv": f"{a} ÷ {b} = ?"
                 }
                 return {
                     "question": question,
@@ -335,8 +335,8 @@ class ReplicateProvider(Provider):
                 a = random.randint(1, 20)
                 b = random.randint(1, 20)
                 question = {
-                    "zh": f"北京市三年级数学题: {a} + {b} = ?",
-                    "sv": f"Matematikproblem för årskurs 3 i Beijing: {a} + {b} = ?"
+                    "zh": f"{a} + {b} = ?",
+                    "sv": f"{a} + {b} = ?"
                 }
                 return {
                     "question": question,
