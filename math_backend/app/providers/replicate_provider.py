@@ -221,21 +221,40 @@ class ReplicateProvider(Provider):
             # Import prompt templates
             from app.config.prompt_templates import BILINGUAL_PROBLEM_TEMPLATE, CHINESE_PROBLEM_TEMPLATE, BEIJING_BILINGUAL_PROMPT
             
-            # Select system prompt based on language and custom template
+            # Select prompt based on language and custom template
             if request.prompt_template:
-                system_prompt = request.prompt_template
+                prompt = request.prompt_template
             elif request.language == "sv+zh" or request.language == "zh+sv":
-                system_prompt = BEIJING_BILINGUAL_PROMPT
+                # Use the exact prompt format requested by the user
+                prompt = """生成一道中国北京市数学三年级的题目. 注意： 
+1. 分别使用瑞典语与中文描述题目 
+2. 题目里小朋友用黄小星或李小毛替代。 
+3. 黄小星喜欢玩车，李小毛喜欢画画 
+4. 请生成不同难度，且让黄小星或李小毛同学喜欢且有趣的题目
+
+请按照以下JSON格式返回题目:
+{
+    "question": {
+        "zh": "中文题目",
+        "sv": "瑞典语题目"
+    },
+    "answer": 数字答案,
+    "knowledge_point": "知识点",
+    "hints": ["提示1", "提示2"],
+    "difficulty": 难度等级(1-3),
+    "type": "题目类型"
+}
+
+只返回JSON格式，不要有其他文字。确保瑞典语翻译准确。确保answer是一个数字，不是字符串。"""
             else:
-                system_prompt = CHINESE_PROBLEM_TEMPLATE
+                prompt = f"请生成一道{request.grade_level}年级的{topic_desc}数学题目，难度为{difficulty_desc}。\n\n" + CHINESE_PROBLEM_TEMPLATE
             
             # Call Replicate API
             output = ""
             for event in replicate.stream(
                 self.model,
                 input={
-                    "system": system_prompt,
-                    "prompt": f"请生成一道{request.grade_level}年级的{topic_desc}数学题目，难度为{difficulty_desc}。",
+                    "prompt": prompt,
                     "temperature": 0.7,
                     "max_tokens": 1024
                 }
