@@ -1,24 +1,45 @@
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { Button } from "./ui/button"
 import { api } from "../lib/api"
 import type { Problem } from "../types"
 import { TutorGuidance } from "./TutorGuidance"
+import { useCharacter } from "../lib/characters"
 
 interface TutorChatProps {
   userId: string
   problem: Problem
   userAnswer?: number
+  username?: string
 }
 
-export function TutorChat({ userId, problem, userAnswer }: TutorChatProps) {
+export function TutorChat({ userId, problem, userAnswer, username }: TutorChatProps) {
   const [showGuidance, setShowGuidance] = useState(false)
+  
+  // Get preferred character from localStorage or use default
+  const preferredCharacterId = localStorage.getItem("preferred_character") || "huang-xiaoxing";
+  const { currentCharacter, CharacterSelector } = useCharacter(preferredCharacterId);
+  
   const [response, setResponse] = useState(
-    userAnswer !== undefined 
-      ? `你好！我是黄小星，我看到你的答案是 ${userAnswer}，让我们一起来解决这道${problem.knowledge_point}的题目吧！` 
-      : `你好！我是黄小星，让我们一起来解决这道${problem.knowledge_point}的题目吧！`
+    currentCharacter.greeting(
+      username, 
+      problem.knowledge_point, 
+      userAnswer
+    )
   )
+  
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
+
+  // Update response when character changes
+  useEffect(() => {
+    setResponse(
+      currentCharacter.greeting(
+        username, 
+        problem.knowledge_point, 
+        userAnswer
+      )
+    );
+  }, [currentCharacter, username, problem.knowledge_point, userAnswer]);
 
   const askQuestion = async (question: string, hintType: "quick_hint" | "deep_analysis") => {
     setIsLoading(true)
@@ -30,7 +51,7 @@ export function TutorChat({ userId, problem, userAnswer }: TutorChatProps) {
       )
     } catch (err: any) {
       const errorMessage = err.message === "AI助手服务未配置" 
-        ? "小星暂时休息了，请稍后再试" 
+        ? `${currentCharacter.name}暂时休息了，请稍后再试` 
         : err.message || "对不起，我现在有点累，请稍后再试"
       setError(errorMessage)
     } finally {
@@ -40,11 +61,13 @@ export function TutorChat({ userId, problem, userAnswer }: TutorChatProps) {
 
   return (
     <div className="space-y-3">
+      <CharacterSelector className="mb-2" />
+      
       <div className="bg-white border-2 border-blue-100 rounded-lg p-4">
         {isLoading ? (
           <div className="flex items-center gap-2">
-            <span>🐱</span>
-            <p className="text-gray-600">黄小星正在思考中...</p>
+            <span>{currentCharacter.avatar}</span>
+            <p className="text-gray-600">{currentCharacter.name}正在思考中...</p>
           </div>
         ) : error ? (
           <div className="flex items-center gap-2 text-red-500">

@@ -18,6 +18,32 @@ BILINGUAL_PROBLEM_TEMPLATE = """你是一位小学数学老师，需要生成适
 只返回JSON格式，不要有其他文字。确保answer是一个数字，不是字符串。
 """
 
+# Beijing bilingual problem template (Chinese and Swedish)
+BEIJING_BILINGUAL_PROMPT = """你是一位小学数学老师，专门为北京市三年级学生出题。
+请生成一道适合中国北京市三年级学生水平的数学题目。注意：
+1. 分别使用瑞典语与中文描述题目，每一次生成一道题即可
+2. 题目里小朋友用黄小星或李小毛替代
+3. 黄小星喜欢玩车和看动画片，李小毛喜欢画画和运动
+4. 请生成不同难度，且让黄小星或李小毛同学喜欢且有趣的题目
+5. 请注意李小毛是定居瑞典歌德堡的女生，黄小星是定居中国北京的男生
+6. 仅生成题目，不需要给出提示
+
+请按照以下JSON格式返回题目:
+{
+    "question": {
+        "zh": "中文题目",
+        "sv": "瑞典语题目"
+    },
+    "answer": 数字答案,
+    "knowledge_point": "知识点",
+    "hints": ["提示1", "提示2"],
+    "difficulty": 难度等级(1-3),
+    "type": "题目类型"
+}
+
+只返回JSON格式，不要有其他文字。确保瑞典语翻译准确。确保answer是一个数字，不是字符串。
+"""
+
 # Chinese-only problem template
 CHINESE_PROBLEM_TEMPLATE = """你是一位小学数学老师，需要生成适合小学生的数学题目。
 请生成一道数学题目，并按照以下JSON格式返回:

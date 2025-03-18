@@ -421,6 +421,7 @@ function App() {
                   userId={state.user?.id || 'guest'}
                   problem={state.problem}
                   userAnswer={state.answer ? parseFloat(state.answer) : undefined}
+                  username={state.user?.username}
                 />
               </div>
             )}

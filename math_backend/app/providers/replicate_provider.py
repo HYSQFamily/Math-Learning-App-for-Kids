@@ -36,8 +36,12 @@ class ReplicateProvider(Provider):
             else:
                 system_prompt += "请提供详细的解答步骤，帮助学生理解解题过程。"
             
-            # Set API token
-            os.environ["REPLICATE_API_TOKEN"] = self.api_token
+            # Set API token from environment variable
+            replicate_token = os.environ.get("REPLICATE_API_TOKEN")
+            if replicate_token:
+                os.environ["REPLICATE_API_TOKEN"] = replicate_token
+            else:
+                os.environ["REPLICATE_API_TOKEN"] = self.api_token
             
             # Call Replicate API
             output = ""
@@ -73,8 +77,12 @@ class ReplicateProvider(Provider):
                     "need_extra_help": not is_correct
                 }
             
-            # Set API token
-            os.environ["REPLICATE_API_TOKEN"] = self.api_token
+            # Set API token from environment variable
+            replicate_token = os.environ.get("REPLICATE_API_TOKEN")
+            if replicate_token:
+                os.environ["REPLICATE_API_TOKEN"] = replicate_token
+            else:
+                os.environ["REPLICATE_API_TOKEN"] = self.api_token
             
             system_prompt = """你是一位小学数学老师，正在评估学生的答案。
             请根据学生的答案和正确答案，提供友好的反馈。
@@ -203,27 +211,50 @@ class ReplicateProvider(Provider):
                         "type": "arithmetic"
                     }
             
-            # Set API token
-            os.environ["REPLICATE_API_TOKEN"] = self.api_token
+            # Set API token from environment variable
+            replicate_token = os.environ.get("REPLICATE_API_TOKEN")
+            if replicate_token:
+                os.environ["REPLICATE_API_TOKEN"] = replicate_token
+            else:
+                os.environ["REPLICATE_API_TOKEN"] = self.api_token
             
             # Import prompt templates
-            from app.config.prompt_templates import BILINGUAL_PROBLEM_TEMPLATE, CHINESE_PROBLEM_TEMPLATE
+            from app.config.prompt_templates import BILINGUAL_PROBLEM_TEMPLATE, CHINESE_PROBLEM_TEMPLATE, BEIJING_BILINGUAL_PROMPT
             
-            # Select system prompt based on language and custom template
+            # Select prompt based on language and custom template
             if request.prompt_template:
-                system_prompt = request.prompt_template
+                prompt = request.prompt_template
             elif request.language == "sv+zh" or request.language == "zh+sv":
-                system_prompt = BILINGUAL_PROBLEM_TEMPLATE
+                # Use the exact prompt format requested by the user
+                prompt = """生成一道中国北京市数学三年级的题目. 注意： 
+1. 分别使用瑞典语与中文描述题目 
+2. 题目里小朋友用黄小星或李小毛替代。 
+3. 黄小星喜欢玩车，李小毛喜欢画画 
+4. 请生成不同难度，且让黄小星或李小毛同学喜欢且有趣的题目
+
+请按照以下JSON格式返回题目:
+{
+    "question": {
+        "zh": "中文题目",
+        "sv": "瑞典语题目"
+    },
+    "answer": 数字答案,
+    "knowledge_point": "知识点",
+    "hints": ["提示1", "提示2"],
+    "difficulty": 难度等级(1-3),
+    "type": "题目类型"
+}
+
+只返回JSON格式，不要有其他文字。确保瑞典语翻译准确。确保answer是一个数字，不是字符串。"""
             else:
-                system_prompt = CHINESE_PROBLEM_TEMPLATE
+                prompt = f"请生成一道{request.grade_level}年级的{topic_desc}数学题目，难度为{difficulty_desc}。\n\n" + CHINESE_PROBLEM_TEMPLATE
             
             # Call Replicate API
             output = ""
             for event in replicate.stream(
                 self.model,
                 input={
-                    "system": system_prompt,
-                    "prompt": f"请生成一道{request.grade_level}年级的{topic_desc}数学题目，难度为{difficulty_desc}。",
+                    "prompt": prompt,
                     "temperature": 0.7,
                     "max_tokens": 1024
                 }
@@ -263,7 +294,7 @@ class ReplicateProvider(Provider):
             
         except Exception as e:
             logger.error(f"Error generating problem with Claude 3.7: {str(e)}")
-            # Return a varied fallback problem
+            # Return a bilingual fallback problem
             import random
             import time
             
@@ -277,8 +308,12 @@ class ReplicateProvider(Provider):
             if random_topic == "subtraction":
                 a = random.randint(10, 20)
                 b = random.randint(1, a)
+                question = {
+                    "zh": f"{a} - {b} = ?",
+                    "sv": f"{a} - {b} = ?"
+                }
                 return {
-                    "question": f"{request.grade_level}年级数学题: {a} - {b} = ?",
+                    "question": question,
                     "answer": a - b,
                     "knowledge_point": "减法",
                     "hints": ["可以从大数开始，往回数小数个数"],
@@ -288,8 +323,12 @@ class ReplicateProvider(Provider):
             elif random_topic == "multiplication":
                 a = random.randint(2, 9)
                 b = random.randint(2, 9)
+                question = {
+                    "zh": f"{a} × {b} = ?",
+                    "sv": f"{a} × {b} = ?"
+                }
                 return {
-                    "question": f"{request.grade_level}年级数学题: {a} × {b} = ?",
+                    "question": question,
                     "answer": a * b,
                     "knowledge_point": "乘法",
                     "hints": [f"可以想象成{a}个{b}相加"],
@@ -299,8 +338,12 @@ class ReplicateProvider(Provider):
             elif random_topic == "division":
                 b = random.randint(2, 9)
                 a = b * random.randint(1, 9)
+                question = {
+                    "zh": f"{a} ÷ {b} = ?",
+                    "sv": f"{a} ÷ {b} = ?"
+                }
                 return {
-                    "question": f"{request.grade_level}年级数学题: {a} ÷ {b} = ?",
+                    "question": question,
                     "answer": a / b,
                     "knowledge_point": "除法",
                     "hints": [f"想一想{a}可以平均分成{b}份，每份是多少"],
@@ -310,8 +353,12 @@ class ReplicateProvider(Provider):
             else:  # addition
                 a = random.randint(1, 20)
                 b = random.randint(1, 20)
+                question = {
+                    "zh": f"{a} + {b} = ?",
+                    "sv": f"{a} + {b} = ?"
+                }
                 return {
-                    "question": f"{request.grade_level}年级数学题: {a} + {b} = ?",
+                    "question": question,
                     "answer": a + b,
                     "knowledge_point": "加法",
                     "hints": ["可以先凑成10，再加剩余的数"],

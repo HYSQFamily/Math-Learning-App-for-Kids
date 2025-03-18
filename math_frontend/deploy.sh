@@ -1,0 +1,12 @@
+#!/bin/bash
+set -e
+
+echo "Building frontend..."
+npm run build
+
+echo "Deploying frontend to fly.io..."
+# Use environment variable for the token
+export FLYCTL_AUTH_TOKEN="FlyV1 fm2_lJPECAAAAAAACCh9xBD2YkFbCObsJYrHWXpGGakVwrVodHRwczovL2FwaS5mbHkuaW8vdjGUAJLOAA595x8Lk7lodHRwczovL2FwaS5mbHkuaW8vYWFhL3YxxDw9+KH/hm7i3pVkIRuC9wYxdkzwe1vNocNAIZxsilW7KdIQFMFBSWWgR/7uzCiZ8HCgvyVcUHs4HEYemZzETgwHxdzibrG8T5eUrJt9azoTYSocmYt/Dv1NXkZk2v5LRiu0+uCzFBFM/pGm56nMSu9PkUmo1YE97wfhvuAci0g3KxV31nmT8NXSkjvtKcQgxzvpa22n5MC0Qvv17fnGByfnA7WnvPcWhmRY0Af9+UE=,fm2_lJPETgwHxdzibrG8T5eUrJt9azoTYSocmYt/Dv1NXkZk2v5LRiu0+uCzFBFM/pGm56nMSu9PkUmo1YE97wfhvuAci0g3KxV31nmT8NXSkjvtKcQQMyjzdldXL3MNDQos2twKusO5aHR0cHM6Ly9hcGkuZmx5LmlvL2FhYS92MZgEks5n2MkOzwAAAAEj0OcsF84ADfh0CpHOAA34dAzEEIEZPUQ/RC+ayoHXRjTmWbjEIAaZikPmNvqRJzUaDnsbyFWZK0quYSIG0nXY0zFzA1Tw"
+flyctl deploy --remote-only
+
+echo "Deployment complete!"
