@@ -174,7 +174,11 @@ export const api = {
       }
       
       // Fall back to the problems/next endpoint
-      const response = await fetch(`${API_BASE_URL}/problems/next?t=${cacheBuster}`)
+      // Get client ID from localStorage or use a default
+      let clientId = localStorage.getItem('client_id') || 'guest-user'
+      
+      // Include user_id and language parameters in the fallback endpoint
+      const response = await fetch(`${API_BASE_URL}/problems/next?t=${cacheBuster}&user_id=${clientId}${languageParam}`)
       
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({}))
