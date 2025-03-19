@@ -1,348 +1,171 @@
+"""Replicate API provider for problem generation"""
 import os
 import json
 import logging
 import replicate
 from typing import Dict, Any, Optional, List
-from . import Provider, TutorRequest, ProblemGenerationRequest
+
+from app.providers.base_provider import BaseProvider
+from app.config.prompt_templates import BEIJING_BILINGUAL_PROMPT
 
 logger = logging.getLogger(__name__)
 
-class ReplicateProvider(Provider):
-    """Provider for Replicate API (Claude 3.7)"""
+class ReplicateProvider(BaseProvider):
+    """Provider that uses Replicate API for problem generation"""
     
     def __init__(self):
+        """Initialize the Replicate provider"""
         self.api_token = os.environ.get("REPLICATE_API_TOKEN", "")
+        if not self.api_token:
+            logger.warning("Replicate API token not found in environment variables")
+        
+        # Set the API token for the replicate library
+        os.environ["REPLICATE_API_TOKEN"] = self.api_token
+        
+        # Default model
         self.model = "anthropic/claude-3.7-sonnet"
         
-    async def ask(self, request: TutorRequest) -> str:
-        """Ask a question to Claude 3.7"""
-        try:
-            logger.info(f"Asking Claude 3.7: {request.question}")
-            
-            # If no API token, return a mock response
-            if not self.api_token:
-                if request.hint_type == "quick_hint":
-                    return "尝试把问题分解成更小的步骤，一步一步解决。"
-                else:
-                    return "首先理解题目要求，然后列出已知条件，最后一步一步解答。如果遇到困难，可以画图帮助理解。"
-            
-            system_prompt = """你是一位小学数学老师，专门帮助学生解答数学问题。
-            请用简单、友好的语言回答问题，适合小学生理解。
-            如果学生的问题不清楚，请礼貌地要求他们提供更多信息。
-            """
-            
-            if request.hint_type == "quick_hint":
-                system_prompt += "请提供简短的提示，不要直接给出完整答案。"
-            else:
-                system_prompt += "请提供详细的解答步骤，帮助学生理解解题过程。"
-            
-            # Set API token from environment variable
-            replicate_token = os.environ.get("REPLICATE_API_TOKEN")
-            if replicate_token:
-                os.environ["REPLICATE_API_TOKEN"] = replicate_token
-            else:
-                os.environ["REPLICATE_API_TOKEN"] = self.api_token
-            
-            # Call Replicate API
-            output = ""
-            for event in replicate.stream(
-                self.model,
-                input={
-                    "system": system_prompt,
-                    "prompt": request.question,
-                    "temperature": 0.7,
-                    "max_tokens": 1024
-                }
-            ):
-                output += str(event)
-            
-            return output
-            
-        except Exception as e:
-            logger.error(f"Error asking Claude 3.7: {str(e)}")
-            return "抱歉，AI助手暂时无法回答，请稍后再试。"
+        # Use the Beijing bilingual prompt template
+        self.prompt_template = BEIJING_BILINGUAL_PROMPT
     
-    async def evaluate_answer(self, problem_id: str, user_answer: float, correct_answer: float) -> Dict[str, Any]:
-        """Evaluate a user's answer using Claude 3.7"""
-        try:
-            logger.info(f"Evaluating answer with Claude 3.7: Problem {problem_id}, User answer: {user_answer}, Correct answer: {correct_answer}")
-            
-            is_correct = abs(user_answer - correct_answer) < 0.001
-            
-            # If no API token, return a simple evaluation
-            if not self.api_token:
-                return {
-                    "is_correct": is_correct,
-                    "explanation": "答案正确！" if is_correct else f"正确答案是 {correct_answer}",
-                    "need_extra_help": not is_correct
-                }
-            
-            # Set API token from environment variable
-            replicate_token = os.environ.get("REPLICATE_API_TOKEN")
-            if replicate_token:
-                os.environ["REPLICATE_API_TOKEN"] = replicate_token
-            else:
-                os.environ["REPLICATE_API_TOKEN"] = self.api_token
-            
-            system_prompt = """你是一位小学数学老师，正在评估学生的答案。
-            请根据学生的答案和正确答案，提供友好的反馈。
-            如果答案正确，给予鼓励；如果答案错误，提供简短的解释和正确答案。
-            
-            请按照以下JSON格式返回评估结果:
-            {
-                "is_correct": true/false,
-                "explanation": "评价和解释",
-                "need_extra_help": true/false
-            }
-            
-            只返回JSON格式，不要有其他文字。
-            """
-            
-            # Call Replicate API
-            output = ""
-            for event in replicate.stream(
-                self.model,
-                input={
-                    "system": system_prompt,
-                    "prompt": f"问题ID: {problem_id}, 学生答案: {user_answer}, 正确答案: {correct_answer}",
-                    "temperature": 0.3,
-                    "max_tokens": 1024
-                }
-            ):
-                output += str(event)
-            
-            # Extract JSON from response
-            try:
-                # Find JSON in the response
-                start_idx = output.find('{')
-                end_idx = output.rfind('}') + 1
-                if start_idx >= 0 and end_idx > start_idx:
-                    json_str = output[start_idx:end_idx]
-                    evaluation = json.loads(json_str)
-                    
-                    # Ensure required fields exist
-                    evaluation.setdefault("is_correct", is_correct)
-                    evaluation.setdefault("explanation", "答案正确！" if is_correct else f"正确答案是 {correct_answer}")
-                    evaluation.setdefault("need_extra_help", not is_correct)
-                    
-                    return evaluation
-                else:
-                    raise ValueError("Could not find JSON in response")
-            except json.JSONDecodeError:
-                raise ValueError("Invalid JSON in response")
-            
-        except Exception as e:
-            logger.error(f"Error evaluating answer with Claude 3.7: {str(e)}")
-            return {
-                "is_correct": is_correct,
-                "explanation": "答案正确！" if is_correct else f"正确答案是 {correct_answer}",
-                "need_extra_help": not is_correct
-            }
+    def is_available(self) -> bool:
+        """Check if the provider is available"""
+        return bool(self.api_token)
     
-    async def generate_problem(self, request: ProblemGenerationRequest) -> Dict[str, Any]:
-        """Generate a math problem using Claude 3.7"""
+    async def generate_problem(self, grade_level: int = 3, language: str = "zh+sv") -> Dict[str, Any]:
+        """Generate a math problem using Replicate API"""
+        if not self.is_available():
+            logger.error("Replicate API token not available")
+            return self._generate_fallback_problem(language)
+        
         try:
-            # Set difficulty description
-            difficulty_desc = "简单"
-            if request.difficulty == 2:
-                difficulty_desc = "中等"
-            elif request.difficulty == 3:
-                difficulty_desc = "困难"
+            # Use the prompt template
+            prompt = self.prompt_template
             
-            # Set topic description
-            topic_desc = ""
-            if request.topic:
-                topic_desc = request.topic
-            
-            logger.info(f"Generating {difficulty_desc} {topic_desc} problem for grade {request.grade_level} in language {request.language}")
-            
-            # If no API token, return a varied fallback problem
-            if not self.api_token:
-                # Generate a more varied fallback problem based on topic and timestamp
-                import random
-                import time
-                
-                # Use current timestamp to seed randomness
-                random.seed(int(time.time()))
-                
-                # Generate random numbers based on topic
-                if topic_desc == "subtraction":
-                    a = random.randint(10, 20)
-                    b = random.randint(1, a)
-                    return {
-                        "question": f"{request.grade_level}年级数学题: {a} - {b} = ?",
-                        "answer": a - b,
-                        "knowledge_point": "减法",
-                        "hints": ["可以从大数开始，往回数小数个数"],
-                        "difficulty": request.difficulty or 2,
-                        "type": "arithmetic"
-                    }
-                elif topic_desc == "multiplication":
-                    a = random.randint(2, 9)
-                    b = random.randint(2, 9)
-                    return {
-                        "question": f"{request.grade_level}年级数学题: {a} × {b} = ?",
-                        "answer": a * b,
-                        "knowledge_point": "乘法",
-                        "hints": [f"可以想象成{a}个{b}相加"],
-                        "difficulty": request.difficulty or 2,
-                        "type": "arithmetic"
-                    }
-                elif topic_desc == "division":
-                    b = random.randint(2, 9)
-                    a = b * random.randint(1, 9)
-                    return {
-                        "question": f"{request.grade_level}年级数学题: {a} ÷ {b} = ?",
-                        "answer": a / b,
-                        "knowledge_point": "除法",
-                        "hints": [f"想一想{a}可以平均分成{b}份，每份是多少"],
-                        "difficulty": request.difficulty or 2,
-                        "type": "arithmetic"
-                    }
-                else:  # default to addition
-                    a = random.randint(1, 20)
-                    b = random.randint(1, 20)
-                    return {
-                        "question": f"{request.grade_level}年级数学题: {a} + {b} = ?",
-                        "answer": a + b,
-                        "knowledge_point": "加法",
-                        "hints": ["可以先凑成10，再加剩余的数"],
-                        "difficulty": request.difficulty or 2,
-                        "type": "arithmetic"
-                    }
-            
-            # Set API token from environment variable
-            replicate_token = os.environ.get("REPLICATE_API_TOKEN")
-            if replicate_token:
-                os.environ["REPLICATE_API_TOKEN"] = replicate_token
-            else:
-                os.environ["REPLICATE_API_TOKEN"] = self.api_token
-            
-            # Import prompt templates
-            from app.config.prompt_templates import BILINGUAL_PROBLEM_TEMPLATE, CHINESE_PROBLEM_TEMPLATE, BEIJING_BILINGUAL_PROMPT
-            
-            # Select prompt based on language and custom template
-            if request.prompt_template:
-                prompt = request.prompt_template
-            elif request.language == "sv+zh" or request.language == "zh+sv":
-                # Use the template from prompt_templates.py
-                prompt = BEIJING_BILINGUAL_PROMPT
-            else:
-                prompt = f"请生成一道{request.grade_level}年级的{topic_desc}数学题目，难度为{difficulty_desc}。\n\n" + CHINESE_PROBLEM_TEMPLATE
-            
-            # Call Replicate API
-            output = ""
-            for event in replicate.stream(
+            # Call the Replicate API
+            output = replicate.run(
                 self.model,
                 input={
                     "prompt": prompt,
                     "temperature": 0.7,
                     "max_tokens": 1024
                 }
-            ):
-                output += str(event)
+            )
             
-            # Extract JSON from response
-            try:
-                # Find JSON in the response
-                start_idx = output.find('{')
-                end_idx = output.rfind('}') + 1
-                if start_idx >= 0 and end_idx > start_idx:
-                    json_str = output[start_idx:end_idx]
-                    problem = json.loads(json_str)
+            # Parse the response
+            if isinstance(output, str):
+                # Extract JSON from the response
+                try:
+                    # Find JSON in the response
+                    json_start = output.find("{")
+                    json_end = output.rfind("}") + 1
+                    if json_start >= 0 and json_end > json_start:
+                        json_str = output[json_start:json_end]
+                        problem_data = json.loads(json_str)
+                    else:
+                        # If no JSON found, use the whole output
+                        problem_data = json.loads(output)
                     
-                    # Validate problem data
-                    if "question" not in problem or "answer" not in problem:
-                        raise ValueError("Invalid problem data: missing required fields")
+                    # Ensure the problem has the required fields
+                    if not self._validate_problem(problem_data):
+                        logger.warning("Invalid problem format from Replicate API")
+                        return self._generate_fallback_problem(language)
                     
-                    # Ensure answer is a number
-                    try:
-                        problem["answer"] = float(problem["answer"])
-                    except (ValueError, TypeError):
-                        problem["answer"] = 0
-                    
-                    # Ensure other fields exist
-                    problem.setdefault("knowledge_point", "基础数学")
-                    problem.setdefault("hints", ["思考一下基本的计算方法"])
-                    problem.setdefault("difficulty", request.difficulty or 2)
-                    problem.setdefault("type", "arithmetic")
-                    
-                    return problem
-                else:
-                    raise ValueError("Could not find JSON in response")
-            except json.JSONDecodeError:
-                raise ValueError("Invalid JSON in response")
-            
+                    return problem_data
+                except json.JSONDecodeError as e:
+                    logger.error(f"Failed to parse JSON from Replicate response: {e}")
+                    logger.debug(f"Raw response: {output}")
+                    return self._generate_fallback_problem(language)
+            else:
+                logger.error(f"Unexpected response type from Replicate API: {type(output)}")
+                return self._generate_fallback_problem(language)
+                
         except Exception as e:
-            logger.error(f"Error generating problem with Claude 3.7: {str(e)}")
-            # Return a bilingual fallback problem
-            import random
-            import time
+            logger.error(f"API call failed: {type(e).__name__} Details: {str(e)}")
+            return self._generate_fallback_problem(language)
+    
+    async def ask(self, user_id: str, question: str, hint_type: str = "quick_hint") -> Dict[str, Any]:
+        """Ask a question to the AI tutor"""
+        if not self.is_available():
+            logger.error("Replicate API token not available")
+            return {"answer": "AI助手服务未配置", "model": None}
+        
+        try:
+            # Prepare the prompt
+            prompt = f"""你是一位小学数学老师，正在辅导一位学生解决数学问题。
+学生的问题是：{question}
+
+请提供一个{"简短的提示" if hint_type == "quick_hint" else "详细的分析"}，帮助学生理解并解决这个问题。
+回答应该是鼓励性的，适合小学生理解的语言。"""
             
-            # Use current timestamp to seed randomness
-            random.seed(int(time.time()))
+            # Call the Replicate API
+            output = replicate.run(
+                self.model,
+                input={
+                    "prompt": prompt,
+                    "temperature": 0.7,
+                    "max_tokens": 1024
+                }
+            )
             
-            # Generate random problem based on a random topic
-            topics = ["addition", "subtraction", "multiplication", "division"]
-            random_topic = topics[random.randint(0, len(topics) - 1)]
-            
-            if random_topic == "subtraction":
-                a = random.randint(10, 20)
-                b = random.randint(1, a)
-                question = {
-                    "zh": f"{a} - {b} = ?",
-                    "sv": f"{a} - {b} = ?"
-                }
-                return {
-                    "question": question,
-                    "answer": a - b,
-                    "knowledge_point": "减法",
-                    "hints": ["可以从大数开始，往回数小数个数"],
-                    "difficulty": request.difficulty or 2,
-                    "type": "arithmetic"
-                }
-            elif random_topic == "multiplication":
-                a = random.randint(2, 9)
-                b = random.randint(2, 9)
-                question = {
-                    "zh": f"{a} × {b} = ?",
-                    "sv": f"{a} × {b} = ?"
-                }
-                return {
-                    "question": question,
-                    "answer": a * b,
-                    "knowledge_point": "乘法",
-                    "hints": [f"可以想象成{a}个{b}相加"],
-                    "difficulty": request.difficulty or 2,
-                    "type": "arithmetic"
-                }
-            elif random_topic == "division":
-                b = random.randint(2, 9)
-                a = b * random.randint(1, 9)
-                question = {
-                    "zh": f"{a} ÷ {b} = ?",
-                    "sv": f"{a} ÷ {b} = ?"
-                }
-                return {
-                    "question": question,
-                    "answer": a / b,
-                    "knowledge_point": "除法",
-                    "hints": [f"想一想{a}可以平均分成{b}份，每份是多少"],
-                    "difficulty": request.difficulty or 2,
-                    "type": "arithmetic"
-                }
-            else:  # addition
-                a = random.randint(1, 20)
-                b = random.randint(1, 20)
-                question = {
-                    "zh": f"{a} + {b} = ?",
-                    "sv": f"{a} + {b} = ?"
-                }
-                return {
-                    "question": question,
-                    "answer": a + b,
-                    "knowledge_point": "加法",
-                    "hints": ["可以先凑成10，再加剩余的数"],
-                    "difficulty": request.difficulty or 2,
-                    "type": "arithmetic"
-                }
+            # Return the response
+            if isinstance(output, str):
+                return {"answer": output, "model": self.model}
+            elif isinstance(output, list):
+                return {"answer": "".join(output), "model": self.model}
+            else:
+                logger.error(f"Unexpected response type from Replicate API: {type(output)}")
+                return {"answer": "对不起，我现在无法回答你的问题。请稍后再试。", "model": None}
+                
+        except Exception as e:
+            logger.error(f"API call failed: {type(e).__name__} Details: {str(e)}")
+            return {"answer": "对不起，我现在无法回答你的问题。请稍后再试。", "model": None}
+    
+    def _validate_problem(self, problem: Dict[str, Any]) -> bool:
+        """Validate that the problem has the required fields"""
+        required_fields = ["question", "answer"]
+        for field in required_fields:
+            if field not in problem:
+                return False
+        
+        # Check if question is a dictionary with language keys for bilingual problems
+        if isinstance(problem["question"], dict):
+            if "zh" not in problem["question"] or "sv" not in problem["question"]:
+                return False
+        
+        # Ensure answer is a number
+        if not isinstance(problem["answer"], (int, float)):
+            try:
+                problem["answer"] = float(problem["answer"])
+            except (ValueError, TypeError):
+                return False
+        
+        return True
+    
+    def _generate_fallback_problem(self, language: str) -> Dict[str, Any]:
+        """Generate a fallback problem when API fails"""
+        logger.info("Generating fallback problem")
+        
+        if language == "zh+sv" or language == "sv+zh":
+            # Bilingual problem
+            return {
+                "question": {
+                    "zh": "黄小星有5个苹果，李小毛给了他3个苹果。黄小星现在有多少个苹果？",
+                    "sv": "Huang Xiaoxing har 5 äpplen. Li Xiaomao ger honom 3 äpplen till. Hur många äpplen har Huang Xiaoxing nu?"
+                },
+                "answer": 8,
+                "difficulty": 1,
+                "hints": ["可以用加法来解决这个问题"],
+                "knowledge_point": "加法",
+                "type": "word_problem"
+            }
+        else:
+            # Chinese-only problem
+            return {
+                "question": "黄小星有5个苹果，李小毛给了他3个苹果。黄小星现在有多少个苹果？",
+                "answer": 8,
+                "difficulty": 1,
+                "hints": ["可以用加法来解决这个问题"],
+                "knowledge_point": "加法",
+                "type": "word_problem"
+            }
