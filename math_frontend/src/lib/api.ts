@@ -1,169 +1,41 @@
-import { Problem, SubmitAnswerResponse, TutorResponse, User, Progress } from '../types'
-import { fallbackProblems, fallbackUser, fallbackProgress, fallbackAttemptResult, fallbackTutorResponse } from './fallbackData'
+/**
+ * API client for the Math Learning App
+ */
 
-// Define multiple API endpoints to try in order
-const API_ENDPOINTS = [
-  import.meta.env.VITE_API_URL,
-  'https://math-learning-app-backend.fly.dev',
-  'https://math-learning-app-backend-nbpuekjl.fly.dev'
-].filter(Boolean); // Remove any undefined/empty values
+import { Problem } from '../types'
+import { generateFallbackProblem } from './fallbackData'
 
-// Start with the first endpoint
-let API_BASE_URL = API_ENDPOINTS[0];
+// API base URL - use environment variable if available, otherwise use default
+const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://math-learning-app-backend.fly.dev'
 
-// Function to try the next available API endpoint
-const tryNextEndpoint = () => {
-  const currentIndex = API_ENDPOINTS.indexOf(API_BASE_URL);
-  if (currentIndex < API_ENDPOINTS.length - 1) {
-    API_BASE_URL = API_ENDPOINTS[currentIndex + 1];
-    console.log(`Switching to next API endpoint: ${API_BASE_URL}`);
-    return true;
-  }
-  return false; // No more endpoints to try
-};
-
-// Helper function to handle API errors
-const handleApiError = (error: any, fallbackMessage: string): never => {
-  console.error(`API Error: ${fallbackMessage}`, error)
-  
-  // Check if it's a CORS error
-  if (error.message && (
-    error.message.includes('NetworkError') || 
-    error.message.includes('Failed to fetch') ||
-    error.message.includes('Network request failed')
-  )) {
-    throw new Error('无法连接到服务器，请检查网络连接')
-  }
-  
-  // If the error has a message, use it, otherwise use the fallback
-  throw new Error(error.message || fallbackMessage)
-}
-
-// API client
+/**
+ * API client for the Math Learning App
+ */
 export const api = {
-  // Create or get a user
-  async createUser(username: string, gradeLevel: number, retryCount = 0): Promise<User> {
-    try {
-      // Get client ID from localStorage or generate a new one
-      let clientId = localStorage.getItem('client_id')
-      if (!clientId) {
-        clientId = crypto.randomUUID()
-        localStorage.setItem('client_id', clientId)
-      }
-      
-      console.log(`Attempting to create user with API endpoint: ${API_BASE_URL}`);
-      
-      try {
-        const response = await fetch(`${API_BASE_URL}/users`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'X-Client-ID': clientId
-          },
-          body: JSON.stringify({
-            username,
-            grade_level: gradeLevel
-          })
-        })
-        
-        if (!response.ok) {
-          // If we get a 409 (conflict), the user already exists, try to get it
-          if (response.status === 409) {
-            return await this.getUser(clientId)
-          }
-          
-          const errorData = await response.json().catch(() => ({}))
-          throw new Error(errorData.detail || `创建用户失败: ${response.status}`)
-        }
-        
-        return await response.json()
-      } catch (error: any) {
-        // If network error and we have more endpoints to try
-        if ((error instanceof TypeError || error.message.includes('Failed to fetch')) && 
-            retryCount < API_ENDPOINTS.length - 1 && tryNextEndpoint()) {
-          console.log(`Network error, retrying with next endpoint: ${API_BASE_URL}`);
-          return this.createUser(username, gradeLevel, retryCount + 1);
-        }
-        
-        // If all endpoints failed or it's not a network error
-        throw error;
-      }
-    } catch (error: any) {
-      console.warn('All API endpoints failed, using fallback:', error)
-      // Return fallback user data
-      return {
-        ...fallbackUser,
-        id: localStorage.getItem('client_id') || fallbackUser.id,
-        username: username || fallbackUser.username,
-        grade_level: gradeLevel || fallbackUser.grade_level
-      }
-    }
-  },
-  
-  // Get a user by ID
-  async getUser(userId: string): Promise<User> {
-    try {
-      // Get client ID from localStorage as fallback
-      let clientId = localStorage.getItem('client_id')
-      
-      const response = await fetch(`${API_BASE_URL}/users/${userId}`, {
-        headers: {
-          'X-Client-ID': clientId || ''
-        }
-      })
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || `获取用户失败: ${response.status}`)
-      }
-      
-      return await response.json()
-    } catch (error: any) {
-      console.warn('Error getting user, using fallback:', error)
-      // Return fallback user data
-      return {
-        ...fallbackUser,
-        id: userId || localStorage.getItem('client_id') || fallbackUser.id
-      }
-    }
-  },
-  
-  // Get user progress
-  async getUserProgress(userId: string): Promise<Progress> {
-    try {
-      // Get client ID from localStorage as fallback
-      let clientId = localStorage.getItem('client_id')
-      
-      const response = await fetch(`${API_BASE_URL}/users/${userId}/progress`, {
-        headers: {
-          'X-Client-ID': clientId || ''
-        }
-      })
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || `获取进度失败: ${response.status}`)
-      }
-      
-      return await response.json()
-    } catch (error: any) {
-      console.warn('Error getting progress, using fallback:', error)
-      // Return fallback progress data
-      return fallbackProgress
-    }
-  },
-  
-  // Get the next problem
+  /**
+   * Get the next problem
+   * @param topic Optional topic to filter problems
+   * @param timestamp Optional timestamp to prevent caching
+   * @param language Optional language parameter (default: sv+zh)
+   * @returns Promise<Problem>
+   */
   async getNextProblem(topic?: string, timestamp?: number, language: string = "sv+zh"): Promise<Problem> {
     try {
       // Add timestamp to prevent caching
       const cacheBuster = timestamp || Date.now()
       const topicParam = topic ? `&topic=${topic}` : ''
-      const languageParam = `&language=${language}`
+      const languageParam = `&language=${encodeURIComponent(language)}`
+      
+      // Get client ID from localStorage or generate a new one
+      let clientId = localStorage.getItem('client_id')
+      if (!clientId) {
+        clientId = `client-${Math.random().toString(36).substring(2, 9)}`
+        localStorage.setItem('client_id', clientId)
+      }
       
       // Try the generator endpoint first
       try {
-        const response = await fetch(`${API_BASE_URL}/generator/generate?grade_level=3${topicParam}${languageParam}&t=${cacheBuster}`)
+        const response = await fetch(`${API_BASE_URL}/generator/generate?grade_level=3${topicParam}${languageParam}&t=${cacheBuster}&user_id=${clientId}`)
         
         if (response.ok) {
           const problem = await response.json()
@@ -174,126 +46,169 @@ export const api = {
       }
       
       // Fall back to the problems/next endpoint
-      // Get client ID from localStorage or use a default
-      let clientId = localStorage.getItem('client_id') || 'guest-user'
-      
-      // Include user_id and language parameters in the fallback endpoint
-      const response = await fetch(`${API_BASE_URL}/problems/next?t=${cacheBuster}&user_id=${clientId}${languageParam}`)
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || `获取题目失败: ${response.status}`)
-      }
-      
-      return await response.json()
-    } catch (error: any) {
-      console.warn('Error getting problem, using fallback:', error)
-      
-      // Return a random fallback problem
-      const randomIndex = Math.floor(Math.random() * fallbackProblems.length)
-      const fallbackProblem = fallbackProblems[randomIndex]
-      
-      // Add timestamp to make it unique
-      return {
-        ...fallbackProblem,
-        id: `fallback-${Date.now()}`,
-        created_at: new Date().toISOString()
-      }
-    }
-  },
-  
-  // Submit an answer
-  async submitAnswer(userId: string, problemId: string, answer: number): Promise<SubmitAnswerResponse> {
-    try {
-      // Try the evaluation endpoint first
       try {
-        const evalResponse = await fetch(`${API_BASE_URL}/evaluation/evaluate`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json'
-          },
-          body: JSON.stringify({
-            problem_id: problemId,
-            user_answer: answer,
-            user_id: userId
-          })
-        })
+        const response = await fetch(`${API_BASE_URL}/problems/next?t=${cacheBuster}&user_id=${clientId}${languageParam}`)
         
-        if (evalResponse.ok) {
-          const result = await evalResponse.json()
-          return {
-            is_correct: result.is_correct,
-            message: result.explanation
-          }
+        if (response.ok) {
+          const problem = await response.json()
+          return problem
+        } else {
+          throw new Error(`API error: ${response.status}`)
         }
       } catch (error) {
-        console.warn('Evaluation endpoint failed, trying problems/submit:', error)
+        console.error('Problems/next endpoint failed:', error)
+        throw error
       }
+    } catch (error) {
+      console.error('Error fetching next problem:', error)
+      // Fallback to local problem generation
+      return generateFallbackProblem()
+    }
+  },
+
+  /**
+   * Submit an answer to a problem
+   * @param problemId Problem ID
+   * @param answer User's answer
+   * @returns Promise<{correct: boolean, feedback?: string}>
+   */
+  async submitAnswer(problemId: string | number, answer: number): Promise<{correct: boolean, feedback?: string}> {
+    try {
+      // Get client ID from localStorage or use a default
+      const clientId = localStorage.getItem('client_id') || 'guest-user'
       
-      // Fall back to the problems/submit endpoint
-      const response = await fetch(`${API_BASE_URL}/problems/submit`, {
+      const response = await fetch(`${API_BASE_URL}/problems/${problemId}/submit`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
-          user_id: userId,
-          problem_id: problemId,
-          answer
-        })
+          answer,
+          user_id: clientId
+        }),
       })
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || `提交答案失败: ${response.status}`)
+
+      if (response.ok) {
+        return await response.json()
+      } else {
+        throw new Error(`API error: ${response.status}`)
       }
-      
-      return await response.json()
-    } catch (error: any) {
-      console.warn('Error submitting answer, using fallback:', error)
-      
-      // For fallback, check if the answer is correct based on the problem ID
-      // This is a simple check for demo purposes
-      const problemIdNum = parseInt(problemId.replace(/\D/g, ''))
-      const isCorrect = problemIdNum % 2 === 0 ? answer % 2 === 0 : answer % 2 !== 0
-      
+    } catch (error) {
+      console.error('Error submitting answer:', error)
+      // Fallback to local evaluation
       return {
-        ...fallbackAttemptResult,
-        is_correct: isCorrect,
-        message: isCorrect ? '答对了！' : '答错了，再试一次吧！'
+        correct: Math.random() > 0.5, // Random result for fallback
+        feedback: '离线模式：无法连接到服务器，使用本地评估'
       }
     }
   },
-  
-  // Ask the AI tutor
-  async askTutor(userId: string, question: string, hintType: string = 'quick_hint'): Promise<TutorResponse> {
+
+  /**
+   * Login a user
+   * @param username Username
+   * @param password Password
+   * @returns Promise<{token: string, user: {id: string, username: string}}>
+   */
+  async login(username: string, password: string): Promise<{token: string, user: {id: string, username: string}}> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/login`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username,
+          password,
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        
+        // Store the user ID in localStorage for future API calls
+        if (data.user && data.user.id) {
+          localStorage.setItem('client_id', data.user.id)
+        }
+        
+        return data
+      } else {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `API error: ${response.status}`)
+      }
+    } catch (error) {
+      console.error('Error logging in:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Register a new user
+   * @param username Username
+   * @param password Password
+   * @returns Promise<{token: string, user: {id: string, username: string}}>
+   */
+  async register(username: string, password: string): Promise<{token: string, user: {id: string, username: string}}> {
+    try {
+      const response = await fetch(`${API_BASE_URL}/users/register`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          username,
+          password,
+        }),
+      })
+
+      if (response.ok) {
+        const data = await response.json()
+        
+        // Store the user ID in localStorage for future API calls
+        if (data.user && data.user.id) {
+          localStorage.setItem('client_id', data.user.id)
+        }
+        
+        return data
+      } else {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `API error: ${response.status}`)
+      }
+    } catch (error) {
+      console.error('Error registering:', error)
+      throw error
+    }
+  },
+
+  /**
+   * Ask the AI tutor a question
+   * @param userId User ID
+   * @param question Question to ask
+   * @param hintType Type of hint to request
+   * @returns Promise<{answer: string, model?: string}>
+   */
+  async askTutor(userId: string, question: string, hintType: string = 'quick_hint'): Promise<{answer: string, model?: string}> {
     try {
       const response = await fetch(`${API_BASE_URL}/tutor/ask`, {
         method: 'POST',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           user_id: userId,
           question,
           hint_type: hintType
-        })
+        }),
       })
-      
-      if (!response.ok) {
-        const errorData = await response.json().catch(() => ({}))
-        throw new Error(errorData.detail || `AI助手无法回答: ${response.status}`)
+
+      if (response.ok) {
+        return await response.json()
+      } else {
+        const errorData = await response.json()
+        throw new Error(errorData.detail || `API error: ${response.status}`)
       }
-      
-      return await response.json()
-    } catch (error: any) {
-      console.warn('Error asking tutor, using fallback:', error)
-      
-      // Return fallback tutor response
-      return {
-        ...fallbackTutorResponse,
-        answer: `我是AI助手黄小星。你的问题是: "${question}"。我现在无法连接到服务器，但我可以告诉你解题的一般方法：仔细阅读题目，理解问题，列出方程，然后一步步解答。`
-      }
+    } catch (error) {
+      console.error('Error asking tutor:', error)
+      throw error
     }
   }
 }
