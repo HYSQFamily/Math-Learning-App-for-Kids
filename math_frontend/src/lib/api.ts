@@ -1,30 +1,15 @@
-/**
- * API client for the Math Learning App
- */
-
+import { API_BASE_URL } from './config'
 import { Problem } from '../types'
-import { generateFallbackProblem } from './fallbackData'
+import { fallbackProblems } from './fallbackData'
 
 // API base URL - use environment variable if available, otherwise use default
-const API_BASE_URL = import.meta.env.VITE_API_BASE_URL || 'https://math-learning-app-backend.fly.dev'
+const apiBaseUrl = API_BASE_URL || 'https://math-learning-app-backend.fly.dev'
 
-/**
- * API client for the Math Learning App
- */
 export const api = {
-  /**
-   * Get the next problem
-   * @param topic Optional topic to filter problems
-   * @param timestamp Optional timestamp to prevent caching
-   * @param language Optional language parameter (default: sv+zh)
-   * @returns Promise<Problem>
-   */
-  async getNextProblem(topic?: string, timestamp?: number, language: string = "sv+zh"): Promise<Problem> {
+  async getNextProblem(topic?: string, timestamp?: number, languageParam?: string): Promise<Problem> {
     try {
-      // Add timestamp to prevent caching
+      // Add a cache buster to prevent caching
       const cacheBuster = timestamp || Date.now()
-      const topicParam = topic ? `&topic=${topic}` : ''
-      const languageParam = `&language=${encodeURIComponent(language)}`
       
       // Get client ID from localStorage or generate a new one
       let clientId = localStorage.getItem('client_id')
@@ -33,182 +18,162 @@ export const api = {
         localStorage.setItem('client_id', clientId)
       }
       
-      // Try the generator endpoint first
-      try {
-        const response = await fetch(`${API_BASE_URL}/generator/generate?grade_level=3${topicParam}${languageParam}&t=${cacheBuster}&user_id=${clientId}`)
-        
-        if (response.ok) {
-          const problem = await response.json()
-          return problem
-        }
-      } catch (error) {
-        console.warn('Generator endpoint failed, trying problems/next:', error)
+      // Use the provided language parameter or default
+      const langParam = languageParam || "sv+zh"
+      
+      // Add topic parameter if provided
+      const topicParam = topic ? `&topic=${encodeURIComponent(topic)}` : ''
+      
+      // Add language parameter
+      const formattedLanguageParam = `&language=${encodeURIComponent(langParam)}`
+      
+      // Make the API call with user_id parameter - use problems/next endpoint instead of generator/generate
+      const response = await fetch(`${apiBaseUrl}/problems/next?t=${cacheBuster}&user_id=${clientId}${topicParam}${formattedLanguageParam}`)
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
       }
       
-      // Fall back to the problems/next endpoint
-      try {
-        const response = await fetch(`${API_BASE_URL}/problems/next?t=${cacheBuster}&user_id=${clientId}${languageParam}`)
-        
-        if (response.ok) {
-          const problem = await response.json()
-          return problem
-        } else {
-          throw new Error(`API error: ${response.status}`)
-        }
-      } catch (error) {
-        console.error('Problems/next endpoint failed:', error)
-        throw error
-      }
+      const data = await response.json()
+      return data
     } catch (error) {
       console.error('Error fetching next problem:', error)
-      // Fallback to local problem generation
-      return generateFallbackProblem()
+      
+      // Return a fallback problem if API call fails
+      return fallbackProblems[Math.floor(Math.random() * fallbackProblems.length)]
     }
   },
 
-  /**
-   * Submit an answer to a problem
-   * @param problemId Problem ID
-   * @param answer User's answer
-   * @returns Promise<{correct: boolean, feedback?: string}>
-   */
-  async submitAnswer(problemId: string | number, answer: number): Promise<{correct: boolean, feedback?: string}> {
+  async submitAnswer(userId: string, problemId: string, answer: number): Promise<{ correct: boolean; feedback?: string }> {
     try {
-      // Get client ID from localStorage or use a default
-      const clientId = localStorage.getItem('client_id') || 'guest-user'
-      
-      const response = await fetch(`${API_BASE_URL}/problems/${problemId}/submit`, {
+      const response = await fetch(`${apiBaseUrl}/problems/${problemId}/submit`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          answer,
-          user_id: clientId
+        body: JSON.stringify({ 
+          user_id: userId,
+          answer 
         }),
       })
 
-      if (response.ok) {
-        return await response.json()
-      } else {
+      if (!response.ok) {
         throw new Error(`API error: ${response.status}`)
+      }
+
+      const result = await response.json()
+      return { 
+        correct: result.is_correct, 
+        feedback: result.message 
       }
     } catch (error) {
       console.error('Error submitting answer:', error)
-      // Fallback to local evaluation
-      return {
-        correct: Math.random() > 0.5, // Random result for fallback
-        feedback: '离线模式：无法连接到服务器，使用本地评估'
-      }
+      // Return a fallback response
+      return { correct: answer === 42, feedback: 'Could not connect to server. This is a fallback response.' }
     }
   },
 
-  /**
-   * Login a user
-   * @param username Username
-   * @param password Password
-   * @returns Promise<{token: string, user: {id: string, username: string}}>
-   */
-  async login(username: string, password: string): Promise<{token: string, user: {id: string, username: string}}> {
+  async login(username: string, password: string): Promise<{ success: boolean; user?: any; error?: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/users/login`, {
+      const response = await fetch(`${apiBaseUrl}/users/login`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          username,
-          password,
-        }),
+        body: JSON.stringify({ username, password }),
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        
-        // Store the user ID in localStorage for future API calls
-        if (data.user && data.user.id) {
-          localStorage.setItem('client_id', data.user.id)
-        }
-        
-        return data
-      } else {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || `API error: ${response.status}`)
+      const data = await response.json()
+      
+      if (!response.ok) {
+        return { success: false, error: data.detail || 'Login failed' }
       }
+
+      return { success: true, user: data }
     } catch (error) {
       console.error('Error logging in:', error)
-      throw error
+      return { success: false, error: 'Network error. Please try again.' }
     }
   },
 
-  /**
-   * Register a new user
-   * @param username Username
-   * @param password Password
-   * @returns Promise<{token: string, user: {id: string, username: string}}>
-   */
-  async register(username: string, password: string): Promise<{token: string, user: {id: string, username: string}}> {
+  async register(username: string, password: string): Promise<{ success: boolean; user?: any; error?: string }> {
     try {
-      const response = await fetch(`${API_BASE_URL}/users/register`, {
+      const response = await fetch(`${apiBaseUrl}/users/register`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          username,
-          password,
-        }),
+        body: JSON.stringify({ username, password }),
       })
 
-      if (response.ok) {
-        const data = await response.json()
-        
-        // Store the user ID in localStorage for future API calls
-        if (data.user && data.user.id) {
-          localStorage.setItem('client_id', data.user.id)
-        }
-        
-        return data
-      } else {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || `API error: ${response.status}`)
+      const data = await response.json()
+      
+      if (!response.ok) {
+        return { success: false, error: data.detail || 'Registration failed' }
       }
+
+      return { success: true, user: data }
     } catch (error) {
       console.error('Error registering:', error)
-      throw error
+      return { success: false, error: 'Network error. Please try again.' }
     }
   },
 
-  /**
-   * Ask the AI tutor a question
-   * @param userId User ID
-   * @param question Question to ask
-   * @param hintType Type of hint to request
-   * @returns Promise<{answer: string, model?: string}>
-   */
-  async askTutor(userId: string, question: string, hintType: string = 'quick_hint'): Promise<{answer: string, model?: string}> {
+  async getUserProfile(userId: string): Promise<any> {
     try {
-      const response = await fetch(`${API_BASE_URL}/tutor/ask`, {
+      const response = await fetch(`${apiBaseUrl}/users/${userId}`)
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
+      }
+      
+      return await response.json()
+    } catch (error) {
+      console.error('Error fetching user profile:', error)
+      return null
+    }
+  },
+
+  async updateUserProfile(userId: string, data: any): Promise<{ success: boolean; error?: string }> {
+    try {
+      const response = await fetch(`${apiBaseUrl}/users/${userId}`, {
+        method: 'PUT',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(data),
+      })
+      
+      if (!response.ok) {
+        const errorData = await response.json()
+        return { success: false, error: errorData.detail || 'Update failed' }
+      }
+      
+      return { success: true }
+    } catch (error) {
+      console.error('Error updating user profile:', error)
+      return { success: false, error: 'Network error. Please try again.' }
+    }
+  },
+
+  async askTutor(userId: string, question: string, hintType: string): Promise<{ answer: string; model?: string }> {
+    try {
+      const response = await fetch(`${apiBaseUrl}/tutor/ask`, {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-          user_id: userId,
-          question,
-          hint_type: hintType
-        }),
+        body: JSON.stringify({ user_id: userId, question, hint_type: hintType }),
       })
-
-      if (response.ok) {
-        return await response.json()
-      } else {
-        const errorData = await response.json()
-        throw new Error(errorData.detail || `API error: ${response.status}`)
+      
+      if (!response.ok) {
+        throw new Error(`API error: ${response.status}`)
       }
+      
+      return await response.json()
     } catch (error) {
       console.error('Error asking tutor:', error)
-      throw error
+      throw new Error('AI助手服务未配置')
     }
   }
 }

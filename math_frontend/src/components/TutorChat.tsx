@@ -113,7 +113,7 @@ export function TutorChat({ userId, problem, userAnswer, username }: TutorChatPr
           </Button>
         </div>
         
-        {showGuidance && <TutorGuidance />}
+        {showGuidance && <TutorGuidance problem={problem} />}
       </div>
     </div>
   )
