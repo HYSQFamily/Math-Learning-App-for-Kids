@@ -37,6 +37,7 @@ app.add_middleware(
     allow_origins=[
         "https://math-learning-app-qt3bvm4s.devinapps.com",
         "https://math-learning-app-frontend.fly.dev",
+        "https://math-learning-app-frontend-new.fly.dev",
         "https://math-learning-app-backend.fly.dev",
         "https://math-learning-app-backend-nbpuekjl.fly.dev",
         "http://localhost:5173",
