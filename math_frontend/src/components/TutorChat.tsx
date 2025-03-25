@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react"
+import React, { useState, useEffect } from "react"
 import { Button } from "./ui/button"
 import { api } from "../lib/api"
 import type { Problem } from "../types"
@@ -67,7 +67,7 @@ export function TutorChat({ userId, problem, userAnswer, username }: TutorChatPr
         {isLoading ? (
           <div className="flex items-center gap-2">
             <span>{currentCharacter.avatar}</span>
-            <p className="text-gray-600">{currentCharacter.name}正在思考中...</p>
+            <p className="text-gray-600">{currentCharacter.thinkingMessage}</p>
           </div>
         ) : error ? (
           <div className="flex items-center gap-2 text-red-500">
@@ -75,49 +75,46 @@ export function TutorChat({ userId, problem, userAnswer, username }: TutorChatPr
             <p>{error}</p>
           </div>
         ) : (
-          <div className="space-y-4">
-            <div className="text-gray-800 whitespace-pre-wrap">{response}</div>
+          <div className="space-y-2">
+            <div className="flex items-start gap-2">
+              <span className="text-xl">{currentCharacter.avatar}</span>
+              <div className="flex-1">
+                <p className="whitespace-pre-wrap">{response}</p>
+              </div>
+            </div>
           </div>
         )}
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button
-          onClick={() => askQuestion("给我一点小提示吧", "quick_hint")}
-          variant="secondary"
-          className="bg-white border-2 border-blue-100 hover:bg-blue-50 text-lg"
-          disabled={isLoading}
-        >
-          给点线索 🎯
-        </Button>
-        <Button
-          onClick={() => askQuestion("这道题要怎么想呢？", "deep_analysis")}
-          variant="secondary"
-          className="bg-white border-2 border-blue-100 hover:bg-blue-50 text-lg"
-          disabled={isLoading}
-        >
-          帮我想想 🤔
-        </Button>
-        <Button
-          onClick={() => askQuestion("我想要更多帮助", "deep_analysis")}
-          variant="secondary"
-          className="bg-white border-2 border-blue-100 hover:bg-blue-50 text-lg"
-          disabled={isLoading}
-        >
-          更多帮助 ✨
-        </Button>
+      <div className="flex flex-col gap-2">
+        <div className="flex gap-2">
+          <Button 
+            onClick={() => askQuestion("这道题怎么解？", "quick_hint")}
+            className="flex-1 bg-blue-500 hover:bg-blue-600"
+          >
+            提示
+          </Button>
+          <Button 
+            onClick={() => askQuestion("请详细解释这道题的解法", "deep_analysis")}
+            className="flex-1 bg-purple-500 hover:bg-purple-600"
+          >
+            详解
+          </Button>
+        </div>
+        
+        <div className="flex justify-end">
+          <Button 
+            onClick={() => setShowGuidance(!showGuidance)}
+            variant="outline" 
+            size="sm"
+            className="text-xs text-gray-500"
+          >
+            {showGuidance ? "隐藏调试信息" : "显示调试信息"}
+          </Button>
+        </div>
+        
+        {showGuidance && <TutorGuidance problem={problem} />}
       </div>
-
-      <Button
-        onClick={() => setShowGuidance(prev => !prev)}
-        variant="ghost"
-        className="mt-2 text-gray-500 hover:text-gray-700"
-        disabled={isLoading}
-      >
-        {showGuidance ? "隐藏家长指导 👨‍👩‍👧‍👦" : "家长/老师指导 👨‍👩‍👧‍👦"}
-      </Button>
-
-      {showGuidance && <TutorGuidance problem={problem} />}
     </div>
   )
 }

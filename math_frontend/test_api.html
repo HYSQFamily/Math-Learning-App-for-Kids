@@ -1,0 +1,35 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Math Learning App API Test</title>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 800px; margin: 0 auto; padding: 20px; }
+    h1 { color: #2563eb; }
+    .success { color: green; white-space: pre-wrap; background: #f0fff4; padding: 10px; border-radius: 4px; }
+    .error { color: red; white-space: pre-wrap; background: #fff5f5; padding: 10px; border-radius: 4px; }
+    .warning { color: orange; white-space: pre-wrap; background: #fffbeb; padding: 10px; border-radius: 4px; }
+    button { background: #2563eb; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; }
+    button:hover { background: #1d4ed8; }
+    .section { margin-bottom: 30px; border: 1px solid #e5e7eb; padding: 15px; border-radius: 8px; }
+  </style>
+</head>
+<body>
+  <h1>Math Learning App API Test</h1>
+  
+  <div class="section">
+    <h2>API Endpoint Tests</h2>
+    <button onclick="testApiEndpoints()">Test API Endpoints</button>
+    <div id="results"></div>
+  </div>
+  
+  <div class="section">
+    <h2>Next Problem Button Test</h2>
+    <button onclick="testNextProblemButton()">Test Next Problem Button</button>
+    <div id="next-problem-results"></div>
+  </div>
+  
+  <script src="test_api_endpoints.js"></script>
+</body>
+</html>
