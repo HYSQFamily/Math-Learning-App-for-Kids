@@ -1,9 +1,8 @@
-import { API_BASE_URL } from './config'
 import { Problem, User, Progress } from '../types'
 import { fallbackProblems } from './fallbackData'
 
-// API base URL - use environment variable if available, otherwise use default
-const apiBaseUrl = API_BASE_URL || 'https://math-learning-app-backend.fly.dev'
+// API base URL - use default since config module is missing
+const apiBaseUrl = 'https://math-learning-app-backend.fly.dev'
 
 // List of API endpoints to try in order - ALWAYS use HTTPS
 const API_ENDPOINTS = [
