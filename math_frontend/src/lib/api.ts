@@ -106,9 +106,6 @@ export const api = {
       // Add language parameter
       const formattedLanguageParam = `&language=${encodeURIComponent(langParam)}`
       
-      // Ensure we're using HTTPS
-      const secureApiBaseUrl = apiBaseUrl.replace('http://', 'https://')
-      
       // Try each endpoint in sequence
       for (let i = 0; i < API_ENDPOINTS.length; i++) {
         const endpoint = API_ENDPOINTS[i]
@@ -161,25 +158,43 @@ export const api = {
 
   async submitAnswer(userId: string, problemId: string, answer: number): Promise<{ is_correct: boolean; message?: string }> {
     try {
-      // Ensure we're using HTTPS
-      const secureApiBaseUrl = apiBaseUrl.replace('http://', 'https://')
-      
-      const response = await fetch(`${secureApiBaseUrl}/problems/${problemId}/submit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          user_id: userId,
-          answer 
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+      // Try each endpoint in sequence
+      for (let i = 0; i < API_ENDPOINTS.length; i++) {
+        const endpoint = API_ENDPOINTS[i]
+        try {
+          console.log(`Attempting to submit answer with API endpoint: ${endpoint}`)
+          
+          // Ensure we're using HTTPS
+          const secureEndpoint = endpoint.replace('http://', 'https://')
+          
+          const response = await fetch(`${secureEndpoint}/problems/${problemId}/submit`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              user_id: userId,
+              problem_id: problemId,
+              answer 
+            }),
+          })
+          
+          if (!response.ok) {
+            throw new Error(`API error: ${response.status}`)
+          }
+          
+          return await response.json()
+        } catch (error) {
+          console.log(`Error with endpoint ${endpoint}:`, error)
+          if (i === API_ENDPOINTS.length - 1) {
+            throw error // Re-throw if this was the last endpoint
+          }
+          console.log(`Switching to next API endpoint: ${API_ENDPOINTS[(i + 1) % API_ENDPOINTS.length]}`)
+        }
       }
-
-      return await response.json()
+      
+      // This should never be reached due to the re-throw above
+      throw new Error('All API endpoints failed')
     } catch (error) {
       console.error('Error submitting answer:', error)
       // Return a fallback response
