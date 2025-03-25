@@ -56,12 +56,39 @@ function App() {
   }
 
   const loadNewProblem = async () => {
-    const problems = await api.getProblems()
-    if (problems.length > 0) {
-      setCurrentProblem(problems[Math.floor(Math.random() * problems.length)])
+    try {
+      // Define possible topics
+      const topics = ["addition", "subtraction", "multiplication", "division"]
+      const randomTopic = topics[Math.floor(Math.random() * topics.length)]
+      
+      // Get user's grade level or default to 3
+      const gradeLevel = user?.grade_level || 3
+      
+      // Get language preference (default to Chinese + Swedish)
+      const language = "sv+zh"
+      
+      console.log(`Reducer action: LOAD_PROBLEM_START Object`)
+      
+      // Try to use the generator endpoint first
+      try {
+        const problem = await api.generateProblem(gradeLevel, randomTopic, language)
+        setCurrentProblem(problem)
+        console.log(`Reducer action: LOAD_PROBLEM_SUCCESS Object`)
+      } catch (error) {
+        console.error("Problem generation failed, falling back to getProblems:", error)
+        // Fallback to the old method if generator fails
+        const problems = await api.getProblems()
+        if (problems.length > 0) {
+          setCurrentProblem(problems[Math.floor(Math.random() * problems.length)])
+        }
+      }
+      
+      // Reset UI state
       setShowHint(false)
       setHintIndex(0)
       setAnswer("")
+    } catch (error) {
+      console.error("Failed to load new problem:", error)
     }
   }
 
