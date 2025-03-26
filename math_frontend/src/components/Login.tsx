@@ -2,13 +2,15 @@ import { useState } from "react"
 
 interface LoginProps {
   onLogin: (username: string, gradeLevel: number) => Promise<void>
+  isLoading?: boolean
+  error?: string | null
 }
 
-export function Login({ onLogin }: LoginProps) {
+export function Login({ onLogin, isLoading: externalIsLoading, error: externalError }: LoginProps) {
   const [username, setUsername] = useState("")
   const [gradeLevel, setGradeLevel] = useState(3)
-  const [isSubmitting, setIsSubmitting] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(externalIsLoading || false)
+  const [error, setError] = useState<string | null>(externalError || null)
   
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

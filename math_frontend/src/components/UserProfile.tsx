@@ -3,9 +3,10 @@ import { User, Progress } from '../types'
 interface UserProfileProps {
   user: User
   progress: Progress | null
+  onLogout?: () => void
 }
 
-export function UserProfile({ user, progress }: UserProfileProps) {
+export function UserProfile({ user, progress, onLogout }: UserProfileProps) {
   // Ensure we have valid values with fallbacks
   const displayName = user.username || 'Guest'
   const displayPoints = user.points || 0
@@ -23,6 +24,15 @@ export function UserProfile({ user, progress }: UserProfileProps) {
       <div className="w-10 h-10 bg-blue-500 rounded-full flex items-center justify-center text-white">
         {displayName.charAt(0).toUpperCase()}
       </div>
+      
+      {onLogout && (
+        <button 
+          onClick={onLogout}
+          className="text-sm text-white bg-red-600 hover:bg-red-700 px-2 py-1 rounded"
+        >
+          退出
+        </button>
+      )}
     </div>
   )
 }
