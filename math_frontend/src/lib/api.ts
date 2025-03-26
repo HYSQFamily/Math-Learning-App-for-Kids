@@ -5,7 +5,15 @@ import { fallbackProblems } from './fallbackData'
 // API base URL - use environment variable if available, otherwise use default
 const apiBaseUrl = API_BASE_URL || 'https://math-learning-app-backend.fly.dev'
 
-// List of API endpoints to try in order
+// Helper function to ensure HTTPS for all API endpoints
+function ensureHttps(url: string): string {
+  if (url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+}
+
+// List of API endpoints to try in order - ALWAYS use HTTPS
 const API_ENDPOINTS = [
   'https://math-learning-app-backend.fly.dev',
   'https://math-learning-app-backend-devin.fly.dev'
@@ -20,7 +28,7 @@ export const api = {
         console.log(`Attempting to create user with API endpoint: ${endpoint}`)
         
         // Ensure we're using HTTPS
-        const secureEndpoint = endpoint.replace('http://', 'https://')
+        const secureEndpoint = ensureHttps(endpoint)
         
         const response = await fetch(`${secureEndpoint}/users/`, {
           method: 'POST',
@@ -64,7 +72,7 @@ export const api = {
   async getUserProgress(userId: string): Promise<Progress> {
     try {
       // Ensure we're using HTTPS
-      const secureApiBaseUrl = apiBaseUrl.replace('http://', 'https://')
+      const secureApiBaseUrl = ensureHttps(apiBaseUrl)
       
       const response = await fetch(`${secureApiBaseUrl}/users/${userId}/progress`)
       
@@ -113,7 +121,7 @@ export const api = {
           console.log(`Attempting to fetch problem with API endpoint: ${endpoint}`)
           
           // Ensure we're using HTTPS
-          const secureEndpoint = endpoint.replace('http://', 'https://')
+          const secureEndpoint = ensureHttps(endpoint)
           
           // Make the API call with user_id parameter - use problems/next endpoint
           const response = await fetch(`${secureEndpoint}/problems/next?t=${cacheBuster}&user_id=${clientId}${topicParam}${formattedLanguageParam}`)
@@ -165,9 +173,9 @@ export const api = {
           console.log(`Attempting to submit answer with API endpoint: ${endpoint}`)
           
           // Ensure we're using HTTPS
-          const secureEndpoint = endpoint.replace('http://', 'https://')
+          const secureEndpoint = ensureHttps(endpoint)
           
-          const response = await fetch(`${secureEndpoint}/problems/${problemId}/submit`, {
+          const response = await fetch(`${secureEndpoint}/problems/submit`, {
             method: 'POST',
             headers: {
               'Content-Type': 'application/json',
@@ -205,7 +213,7 @@ export const api = {
   async login(username: string, password: string): Promise<{ success: boolean; user?: any; error?: string }> {
     try {
       // Ensure we're using HTTPS
-      const secureApiBaseUrl = apiBaseUrl.replace('http://', 'https://')
+      const secureApiBaseUrl = ensureHttps(apiBaseUrl)
       
       const response = await fetch(`${secureApiBaseUrl}/users/login`, {
         method: 'POST',
@@ -231,7 +239,7 @@ export const api = {
   async register(username: string, password: string): Promise<{ success: boolean; user?: any; error?: string }> {
     try {
       // Ensure we're using HTTPS
-      const secureApiBaseUrl = apiBaseUrl.replace('http://', 'https://')
+      const secureApiBaseUrl = ensureHttps(apiBaseUrl)
       
       const response = await fetch(`${secureApiBaseUrl}/users/register`, {
         method: 'POST',
@@ -257,7 +265,7 @@ export const api = {
   async getUserProfile(userId: string): Promise<any> {
     try {
       // Ensure we're using HTTPS
-      const secureApiBaseUrl = apiBaseUrl.replace('http://', 'https://')
+      const secureApiBaseUrl = ensureHttps(apiBaseUrl)
       
       const response = await fetch(`${secureApiBaseUrl}/users/${userId}`)
       
@@ -275,7 +283,7 @@ export const api = {
   async updateUserProfile(userId: string, data: any): Promise<{ success: boolean; error?: string }> {
     try {
       // Ensure we're using HTTPS
-      const secureApiBaseUrl = apiBaseUrl.replace('http://', 'https://')
+      const secureApiBaseUrl = ensureHttps(apiBaseUrl)
       
       const response = await fetch(`${secureApiBaseUrl}/users/${userId}`, {
         method: 'PUT',
@@ -300,7 +308,7 @@ export const api = {
   async askTutor(userId: string, question: string, hintType: string): Promise<{ answer: string; model?: string }> {
     try {
       // Ensure we're using HTTPS
-      const secureApiBaseUrl = apiBaseUrl.replace('http://', 'https://')
+      const secureApiBaseUrl = ensureHttps(apiBaseUrl)
       
       const response = await fetch(`${secureApiBaseUrl}/tutor/ask`, {
         method: 'POST',

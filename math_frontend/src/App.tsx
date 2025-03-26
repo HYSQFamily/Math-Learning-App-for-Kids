@@ -1,11 +1,10 @@
-import React, { useState, useEffect, useReducer } from "react"
+import { useReducer } from "react"
 import { api } from "./lib/api"
 import { Problem, User, Progress } from "./types"
 import { Login } from "./components/Login"
 import { ProblemDisplay } from "./components/ProblemDisplay"
 import { UserProfile } from "./components/UserProfile"
 import { TutorChat } from "./components/TutorChat"
-import { useCharacter } from "./lib/characters"
 
 // Define action types
 type Action =
@@ -97,7 +96,7 @@ function reducer(state: State, action: Action): State {
 
 export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState)
-  const { currentCharacter } = useCharacter()
+  // No need for character in this component
   
   // Extract state variables for easier access
   const { 
@@ -132,7 +131,7 @@ export default function App() {
       
       // Load first problem
       console.log("Fetching first problem...")
-      loadNextProblem(userData.id, userData.grade_level)
+      loadNextProblem()
     } catch (error: any) {
       console.error("Login error:", error)
       dispatch({ 
@@ -143,7 +142,9 @@ export default function App() {
   }
 
   // Load next problem
-  const loadNextProblem = async (userId: string, gradeLevel: number) => {
+  const loadNextProblem = async () => {
+    if (!user) return;
+    
     try {
       dispatch({ type: 'LOAD_PROBLEM_START' })
       
@@ -197,7 +198,7 @@ export default function App() {
     if (!user) return
     
     dispatch({ type: 'NEXT_PROBLEM' })
-    loadNextProblem(user.id, user.grade_level)
+    loadNextProblem()
   }
 
   // If not logged in, show login screen
@@ -234,7 +235,7 @@ export default function App() {
           <div className="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded">
             <p>{error}</p>
             <button 
-              onClick={() => user && loadNextProblem(user.id, user.grade_level)}
+              onClick={() => user && loadNextProblem()}
               className="mt-2 bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700"
             >
               重试
@@ -268,7 +269,7 @@ export default function App() {
         ) : (
           <div className="text-center p-8">
             <button
-              onClick={() => user && loadNextProblem(user.id, user.grade_level)}
+              onClick={() => user && loadNextProblem()}
               className="bg-blue-600 text-white px-6 py-3 rounded-lg text-lg hover:bg-blue-700"
             >
               开始练习
