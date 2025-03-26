@@ -1,19 +1,23 @@
+import { API_BASE_URL } from './config'
 import { Problem, User, Progress } from '../types'
 import { fallbackProblems } from './fallbackData'
 
-// API base URL - use default since config module is missing
-const apiBaseUrl = 'https://math-learning-app-backend.fly.dev'
+// API base URL - use environment variable if available, otherwise use default
+const apiBaseUrl = API_BASE_URL || 'https://math-learning-app-backend.fly.dev'
+
+// Helper function to ensure HTTPS for all API endpoints
+function ensureHttps(url: string): string {
+  if (url.startsWith('http://')) {
+    return url.replace('http://', 'https://');
+  }
+  return url;
+}
 
 // List of API endpoints to try in order - ALWAYS use HTTPS
 const API_ENDPOINTS = [
   'https://math-learning-app-backend.fly.dev',
   'https://math-learning-app-backend-devin.fly.dev'
 ]
-
-// Helper function to ensure HTTPS
-const ensureHttps = (url: string): string => {
-  return url.replace(/^http:\/\//i, 'https://');
-}
 
 export const api = {
   async createUser(username: string, gradeLevel: number = 3): Promise<User> {
@@ -162,25 +166,43 @@ export const api = {
 
   async submitAnswer(userId: string, problemId: string, answer: number): Promise<{ is_correct: boolean; message?: string }> {
     try {
-      // Ensure we're using HTTPS
-      const secureApiBaseUrl = ensureHttps(apiBaseUrl)
-      
-      const response = await fetch(`${secureApiBaseUrl}/problems/${problemId}/submit`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ 
-          user_id: userId,
-          answer 
-        }),
-      })
-
-      if (!response.ok) {
-        throw new Error(`API error: ${response.status}`)
+      // Try each endpoint in sequence
+      for (let i = 0; i < API_ENDPOINTS.length; i++) {
+        const endpoint = API_ENDPOINTS[i]
+        try {
+          console.log(`Attempting to submit answer with API endpoint: ${endpoint}`)
+          
+          // Ensure we're using HTTPS
+          const secureEndpoint = ensureHttps(endpoint)
+          
+          const response = await fetch(`${secureEndpoint}/problems/submit`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({ 
+              user_id: userId,
+              problem_id: problemId,
+              answer 
+            }),
+          })
+          
+          if (!response.ok) {
+            throw new Error(`API error: ${response.status}`)
+          }
+          
+          return await response.json()
+        } catch (error) {
+          console.log(`Error with endpoint ${endpoint}:`, error)
+          if (i === API_ENDPOINTS.length - 1) {
+            throw error // Re-throw if this was the last endpoint
+          }
+          console.log(`Switching to next API endpoint: ${API_ENDPOINTS[(i + 1) % API_ENDPOINTS.length]}`)
+        }
       }
-
-      return await response.json()
+      
+      // This should never be reached due to the re-throw above
+      throw new Error('All API endpoints failed')
     } catch (error) {
       console.error('Error submitting answer:', error)
       // Return a fallback response
