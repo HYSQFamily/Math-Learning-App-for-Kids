@@ -1,4 +1,4 @@
-import { useReducer } from "react"
+import { useReducer, useEffect } from "react"
 import { api } from "./lib/api"
 import { Problem, User, Progress } from "./types"
 import { Login } from "./components/Login"
@@ -98,6 +98,52 @@ export default function App() {
   const [state, dispatch] = useReducer(reducer, initialState)
   // No need for character in this component
   
+  // Check for existing session on load
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user_data')
+    if (savedUser && !state.user) {
+      try {
+        const userData = JSON.parse(savedUser)
+        console.log("Restoring user session from localStorage:", userData)
+        dispatch({ type: 'LOGIN_SUCCESS', payload: userData })
+        
+        // Load user progress and first problem
+        api.getUserProgress(userData.id)
+          .then(progressData => {
+            dispatch({ type: 'UPDATE_PROGRESS', payload: progressData })
+            loadNextProblem()
+          })
+          .catch(console.error)
+      } catch (error) {
+        console.error("Error restoring session:", error)
+        localStorage.removeItem('user_data')
+      }
+    }
+  }, [])
+  
+  // Check for existing session on load
+  useEffect(() => {
+    const savedUser = localStorage.getItem('user_data')
+    if (savedUser && !state.user) {
+      try {
+        const userData = JSON.parse(savedUser)
+        console.log("Restoring user session from localStorage:", userData)
+        dispatch({ type: 'LOGIN_SUCCESS', payload: userData })
+        
+        // Load user progress and first problem
+        api.getUserProgress(userData.id)
+          .then(progressData => {
+            dispatch({ type: 'UPDATE_PROGRESS', payload: progressData })
+            loadNextProblem()
+          })
+          .catch(console.error)
+      } catch (error) {
+        console.error("Error restoring session:", error)
+        localStorage.removeItem('user_data')
+      }
+    }
+  }, [])
+  
   // Extract state variables for easier access
   const { 
     user, 
@@ -119,6 +165,9 @@ export default function App() {
       console.log("Attempting to create user...")
       const userData = await api.createUser(username, gradeLevel)
       console.log("User created/retrieved successfully:", userData)
+      
+      // Save user data to localStorage for session persistence
+      localStorage.setItem('user_data', JSON.stringify(userData))
       
       dispatch({ type: 'LOGIN_SUCCESS', payload: userData })
       
@@ -184,12 +233,22 @@ export default function App() {
       // Update progress after submission
       const progressData = await api.getUserProgress(user.id)
       dispatch({ type: 'UPDATE_PROGRESS', payload: progressData })
+      
+      // Ensure user data is still in localStorage
+      if (!localStorage.getItem('user_data')) {
+        localStorage.setItem('user_data', JSON.stringify(user))
+      }
     } catch (error: any) {
       console.error("Error submitting answer:", error)
       dispatch({ 
         type: 'SUBMIT_ANSWER_FAILURE', 
         payload: error.message || "Failed to submit answer. Please try again." 
       })
+      
+      // Make sure user session is preserved even on error
+      if (user && !localStorage.getItem('user_data')) {
+        localStorage.setItem('user_data', JSON.stringify(user))
+      }
     }
   }
 
@@ -199,6 +258,12 @@ export default function App() {
     
     dispatch({ type: 'NEXT_PROBLEM' })
     loadNextProblem()
+  }
+  
+  // Handle logout
+  const handleLogout = () => {
+    localStorage.removeItem('user_data')
+    dispatch({ type: 'LOGIN_FAILURE', payload: 'Logged out' })
   }
 
   // If not logged in, show login screen
@@ -222,7 +287,7 @@ export default function App() {
     <div className="min-h-screen bg-blue-50">
       <header className="bg-blue-600 text-white p-4 flex justify-between items-center">
         <h1 className="text-2xl font-bold">数学学习助手</h1>
-        <UserProfile user={user} progress={progress} />
+        <UserProfile user={user} progress={progress} onLogout={handleLogout} />
       </header>
       
       <main className="container mx-auto p-4">

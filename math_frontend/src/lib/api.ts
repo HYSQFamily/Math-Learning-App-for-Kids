@@ -205,6 +205,13 @@ export const api = {
       throw new Error('All API endpoints failed')
     } catch (error) {
       console.error('Error submitting answer:', error)
+      
+      // Check if user data exists in localStorage to prevent session loss
+      const savedUser = localStorage.getItem('user_data')
+      if (!savedUser) {
+        console.warn('User session not found in localStorage during error recovery')
+      }
+      
       // Return a fallback response
       return { is_correct: answer === 42, message: 'Could not connect to server. This is a fallback response.' }
     }
